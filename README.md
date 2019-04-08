@@ -23,13 +23,13 @@ Start geth
 > nohup geth --cache=1024 &
 ```
 
-Clone Ethereum ETL and install dependencies
+Clone Ethereum ETL (my fork) and install dependencies
 
 ```
-> git clone https://github.com/medvedev1088/ethereum-etl
+> git clone https://github.com/SteveVitali/ethereum-etl.git
 > cd ethereum-etl
 > sudo apt-get install python3-pip
->  pip3 install -e .
+> sudo pip3 install -e .
 ```
 
 Run the export script
@@ -40,7 +40,50 @@ Run the export script
 > nohup bash export_all.sh -s $START_BLOCK -e $END_BLOCK -b 100000 -p file://$HOME/.ethereum/geth.ipc -o output &
 ```
 
-`/output` should contain these directories:
+NOTE: as per the requirements of `ethereum-etl`, this script will not run unless a version of pythong satisfying `>=3.5.3,<3.8.0` is installed! So, be sure to install a version in that range first (the default on AWS EC2 Ubuntu 16.04 is Python 3.5.2). Instructions [here](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/):
+
+```
+sudo add-apt-repository ppa:jonathonf/python-3.6
+sudo apt-get update
+sudo apt-get install python3.6
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 1
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 2
+```
+Then use `update-alternatives` to toggle the `python3` command between version 3.5 and 3.6:
+```
+sudo update-alternatives --config python3
+```
+
+After checking with `python3 -V` that 3.6 is installed (in particular, at the time of writing, 3.6.7), there will likely still be more errors! Hopefully these errors, too, will go away once the `python-dev` package is installed (this makes all the header files accessible, among other things, which is necessary for some reason to install `web3`, among other requirements...):
+```
+sudo apt-get install python3.6-dev
+```
+
+Finally, run:
+```
+sudo -H pip3 install -e .
+```
+
+At this point, the `export_all.sh` script above should be able to start executing without errors, in which case `/output` will begin to be populated by the exported Ethereum data.
+
+If there is *still* an error, this is probably because `geth` has not fully synced up to the specified `$START_BLOCK`. If this is the case, you will need to wait. You can check the status of the syncing by running `geth attach` and in the JS console entering:
+```
+>eth.syncing
+```
+Which should return an object of the form:
+```
+{
+  currentBlock: 1000000,
+  highestBlock: 7526118,
+  knownStates: 97867404,
+  pulledStates: 97855918,
+  startingBlock: 0
+}
+```
+If it returns `false`, you probably just have to wait a short period before syncing starts.
+
+
+Now, finally, once `export_all.sh` is successfully run, it will begin populating `/output`, which should contain these sub-directories:
 
 ```
 blocks              contracts  receipts         token_transfers  transaction_hashes
