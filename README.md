@@ -58,8 +58,22 @@ cd output
 aws s3 sync . s3://<your_bucket>/ethereumetl/export
 ```
 
-If you can an error of the form "'AWSHTTPSConnection' object has no attribute...", try uninstalling and re-installing `request` to version 2.12 as suggested [here](https://github.com/boto/botocore/issues/1258) by `mha6`:
+If you get an error of the form "'AWSHTTPSConnection' object has no attribute...", try uninstalling and re-installing `request` to version 2.12 as suggested [here](https://github.com/boto/botocore/issues/1258) by `mha6`:
 ```
 pip3 uninstall requests
 pip3 install requests==2.12
+```
+
+At this point, with the contents of `/output` synced to S3, Medvedev suggests converting Ethereum ETL files to Parquet for much faster querying. For now, we'll skip this step.
+
+Now, create a new database in [AWS Athena](https://console.aws.amazon.com/athena/home):
+```
+CREATE DATABASE ethereumetl;
+```
+
+Create tables for blocks, transactions, etc. by running the SQL located in `schemas/blocks.sql`, `schemas/contracts.sql`, et cetera.
+
+Now we can try a sanity check, e.g.:
+```
+select count(*) from transactions; # ~7,500,000
 ```
