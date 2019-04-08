@@ -5,8 +5,18 @@
 (Instructions adapted from Evgeny Medvedev's [helpful Medium post](https://medium.com/@medvedev1088/exporting-and-analyzing-ethereum-blockchain-f5353414a94e))
 
 SSH into EC2 instance
+```
+ssh -i "<path-to-key.pem>" ubuntu@<public-dns-name>
+```
 
-Install geth (go-ethereum) following [these instructions](https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Ubuntu)
+Install [geth (go-ethereum)](https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Ubuntu):
+```
+> sudo apt-get install software-properties-common
+> sudo add-apt-repository -y ppa:ethereum/ethereum
+> sudo apt-get update
+> sudo apt-get install ethereum
+> geth account new
+```
 
 Start geth
 ```
@@ -25,9 +35,9 @@ Clone Ethereum ETL and install dependencies
 Run the export script
 
 ```
->START_BLOCK=0
->END_BLOCK=7481338
->nohup bash export_all.sh -s $START_BLOCK -e $END_BLOCK -b 100000 -p file://$HOME/.ethereum/geth.ipc -o output &
+> START_BLOCK=0
+> END_BLOCK=7481338
+> nohup bash export_all.sh -s $START_BLOCK -e $END_BLOCK -b 100000 -p file://$HOME/.ethereum/geth.ipc -o output &
 ```
 
 `/output` should contain these directories:
@@ -54,14 +64,14 @@ Run `aws configure` (if necessary, generate new access/secret keys in the [IAM c
 
 Finally, sync the files to S3:
 ```
-cd output
-aws s3 sync . s3://<your_bucket>/ethereumetl/export
+> cd output
+> aws s3 sync . s3://<your_bucket>/ethereumetl/export
 ```
 
 If you get an error of the form "'AWSHTTPSConnection' object has no attribute...", try uninstalling and re-installing `request` to version 2.12 as suggested [here](https://github.com/boto/botocore/issues/1258) by `mha6`:
 ```
-pip3 uninstall requests
-pip3 install requests==2.12
+> pip3 uninstall requests
+> pip3 install requests==2.12
 ```
 
 At this point, with the contents of `/output` synced to S3, Medvedev suggests converting Ethereum ETL files to Parquet for much faster querying. For now, we'll skip this step.
