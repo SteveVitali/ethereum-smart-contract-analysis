@@ -1,0 +1,32 @@
+{
+  "name": "web-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Steven Vitali",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SteveVitali/ethereum-smart-contract-analysis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SteveVitali/ethereum-smart-contract-analysis/issues"
+  },
+  "homepage": "https://github.com/SteveVitali/ethereum-smart-contract-analysis#readme",
+  "description": "",
+  "dependencies": {
+    "express": "^4.16.4",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.4.3",
+    "@babel/preset-react": "^7.0.0",
+    "babel-loader": "^8.0.5",
+    "html-webpack-plugin": "^3.2.0",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
+  }
+}
