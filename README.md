@@ -127,7 +127,7 @@ sudo apt-get install python3.6-gdbm
 
 At this point, with the contents of `/output` synced to S3, Medvedev suggests converting Ethereum ETL files to Parquet for much faster querying. For now, we'll skip this step.
 
-To check progress of each sub-directory:
+To check progress of each sub-directory run 'bash scrape-status.sh' or:
 ```
 (echo "blocks" && ls blocks &&
 echo "transactions" && ls transactions &&
@@ -137,7 +137,9 @@ echo "transaction_hashes" && ls transaction_hashes &&
 echo "logs" && ls logs &&
 echo "contract_addresses" && ls contract_addresses &&
 echo "token_addresses" && ls token_addresses &&
-echo "contracts" && ls contracts)
+echo "contracts" && ls contracts &&
+df -h &&
+echo "SCRAPING BLOCK RANGE: $START_BLOCK-$END_BLOCK")
 ```
 
 Now, create a new database in [AWS Athena](https://console.aws.amazon.com/athena/home):
