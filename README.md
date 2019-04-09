@@ -32,7 +32,7 @@ Clone Ethereum ETL (my fork) and install dependencies
 > sudo pip3 install -e .
 ```
 
-Run the export script
+Run `export_all.sh`
 
 ```
 > START_BLOCK=0
@@ -40,7 +40,7 @@ Run the export script
 > nohup bash export_all.sh -s $START_BLOCK -e $END_BLOCK -b 100000 -p file://$HOME/.ethereum/geth.ipc -o output &
 ```
 
-NOTE: as per the requirements of `ethereum-etl`, this script will not run unless a version of pythong satisfying `>=3.5.3,<3.8.0` is installed! So, be sure to install a version in that range first (the default on AWS EC2 Ubuntu 16.04 is Python 3.5.2). Instructions [here](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/):
+NOTE: as per the requirements of `ethereum-etl`, the export script will not run unless a version of Python satisfying `>=3.5.3,<3.8.0` is installed. So, be sure to install a version in that range first (the default on AWS EC2 Ubuntu 16.04 is Python 3.5.2). Instructions [here](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/):
 
 ```
 sudo add-apt-repository ppa:jonathonf/python-3.6
@@ -49,12 +49,12 @@ sudo apt-get install python3.6
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 1
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 2
 ```
-Then use `update-alternatives` to toggle the `python3` command between version 3.5 and 3.6:
+Use `update-alternatives` to toggle the `python3` command between version 3.5 and 3.6:
 ```
 sudo update-alternatives --config python3
 ```
 
-After checking with `python3 -V` that 3.6 is installed (in particular, at the time of writing, 3.6.7), there will likely still be more errors! Hopefully these errors, too, will go away once the `python-dev` package is installed (this makes all the header files accessible, among other things, which is necessary for some reason to install `web3`, among other requirements...):
+After checking with `python3 -V` that 3.6 is installed (at the time of writing, 3.6.7), there will likely still be more errors. Hopefully these errors, too, will go away once the `python-dev` package is installed (this makes all the header files accessible, among other things, which is necessary for some reason to install `web3`, among other requirements...):
 ```
 sudo apt-get install python3.6-dev
 ```
@@ -101,7 +101,10 @@ Each of these (e.g. `/blocks`) should contain results of the form:
 
 Now, create a new S3 bucket in the [Amazon S3 console](https://console.aws.amazon.com/s3/home) and make sure permissions for the EC2 instances are granted.
 
-Make sure the [AWS CLI](https://aws.amazon.com/cli) is installed.
+Make sure the [AWS CLI](https://aws.amazon.com/cli) is installed:
+```
+sudo pip3 install awscli
+```
 
 Run `aws configure` (if necessary, generate new access/secret keys in the [IAM console](https://console.aws.amazon.com/iam/home))
 
@@ -117,7 +120,25 @@ If you get an error of the form "'AWSHTTPSConnection' object has no attribute...
 > pip3 install requests==2.12
 ```
 
+You may also get an error about the `gdbm` module. In this case, try installing `gdbm` for Python 3.6 in particular:
+```
+sudo apt-get install python3.6-gdbm
+```
+
 At this point, with the contents of `/output` synced to S3, Medvedev suggests converting Ethereum ETL files to Parquet for much faster querying. For now, we'll skip this step.
+
+To check progress of each sub-directory:
+```
+(echo "blocks" && ls blocks &&
+echo "transactions" && ls transactions &&
+echo "token_transfers" && ls token_transfers &&
+echo "receipts" && ls receipts &&
+echo "transaction_hashes" && ls transaction_hashes &&
+echo "logs" && ls logs &&
+echo "contract_addresses" && ls contract_addresses &&
+echo "token_addresses" && ls token_addresses &&
+echo "contracts" && ls contracts)
+```
 
 Now, create a new database in [AWS Athena](https://console.aws.amazon.com/athena/home):
 ```
