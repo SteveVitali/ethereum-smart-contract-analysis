@@ -193,4 +193,25 @@ sudo apt install npm
 npm install
 ```
 
+If the `npm install` still causes errors (e.g., an ENOENT error), you may need to install `node-gyp` first:
+```
+sudo npm install -g node-gyp
+```
+
+If the install still fails, you may need to [update your node version](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-up-node-on-ec2-instance.html):
+```
+# Install nvm
+curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | bash
+
+# Activate nvm
+. ~/.nvm/nvm.sh
+
+# Install
+nvm install 8.9.4
+
+# Sanity check
+node -e "console.log('Running Node.js ' + process.version)"
+```
+
+At this point, the `npm install` should succeed, and we should be able to run the `contract-analysis.js` script and the like without error.
 
