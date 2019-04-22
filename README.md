@@ -1,6 +1,6 @@
 # ethereum-smart-contract-analysis
 
-### Scraper Setup Instructions
+## Scraping the Blockchain and Exporting to S3 -- EC2 Setup Instructions
 
 (Instructions adapted from Evgeny Medvedev's [helpful Medium post](https://medium.com/@medvedev1088/exporting-and-analyzing-ethereum-blockchain-f5353414a94e))
 
@@ -158,7 +158,7 @@ select count(*) from transactions; # ~7,500,000
 
 ------
 
-### Analyzer Setup Instructions
+## Manual Analysis with node.js -- EC2 Setup Instructions
 
 - Spin up a new Amazon EC2 instance (e.g., a t2.large)
 
