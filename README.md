@@ -1,6 +1,6 @@
 # ethereum-smart-contract-analysis
 
-### Setup Instructions
+### Scraper Setup Instructions
 
 (Instructions adapted from Evgeny Medvedev's [helpful Medium post](https://medium.com/@medvedev1088/exporting-and-analyzing-ethereum-blockchain-f5353414a94e))
 
@@ -127,13 +127,13 @@ sudo apt-get install python3.6-gdbm
 
 At this point, with the contents of `/output` synced to S3, Medvedev suggests converting Ethereum ETL files to Parquet for much faster querying. For now, we'll skip this step.
 
-To check progress of each sub-directory run 'bash scrape-status.sh' or:
+To check progress of each sub-directory run:
 ```
 (echo "blocks" && ls blocks &&
 echo "transactions" && ls transactions &&
 echo "token_transfers" && ls token_transfers &&
-echo "receipts" && ls receipts &&
 echo "transaction_hashes" && ls transaction_hashes &&
+echo "receipts" && ls receipts &&
 echo "logs" && ls logs &&
 echo "contract_addresses" && ls contract_addresses &&
 echo "token_addresses" && ls token_addresses &&
@@ -141,6 +141,8 @@ echo "contracts" && ls contracts &&
 df -h &&
 echo "SCRAPING BLOCK RANGE: $START_BLOCK-$END_BLOCK")
 ```
+(alternatively, run the `scrape-status.sh` helper script, but remember to `export START_BLOCK` and `export END_BLOCK` first)
+
 
 Now, create a new database in [AWS Athena](https://console.aws.amazon.com/athena/home):
 ```
@@ -153,3 +155,20 @@ Now we can try a sanity check, e.g.:
 ```
 select count(*) from transactions; # ~7,500,000
 ```
+
+------
+
+### Analyzer Setup Instructions
+
+- Spin up a new Amazon EC2 instance (e.g., a t2.large)
+
+- Run `bash setup-ec2-scraper.sh` to configure/install everything (note: it may take several hours for `geth` to re-sync)
+
+- Copy the entire 450+GB S3 bucket to the single EC2 instance using AWS command line interface (note: ec2 instance must have permissions for bucket, or it must be public) E.g., run:
+```
+aws s3 sync s3://ethereum-blockchain-analysis-svitali .
+```
+
+(You may also need to install the Python 3.6 specific version of `gdbm`: `sudo apt-get install python3.6-gdbm`)
+
+
