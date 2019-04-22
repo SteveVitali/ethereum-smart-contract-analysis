@@ -186,3 +186,11 @@ Once the export is complete, running `du --summary --human-readable *`) from `et
 27G	transaction_hashes
 161G	transactions
 ```
+
+Now we are ready to run the node analysis script(s), e.g. `contract-analysis.js`. If you haven't already, also install `npm` and the repo's package.json requirements:
+```
+sudo apt install npm
+npm install
+```
+
+
