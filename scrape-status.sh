@@ -1,3 +1,5 @@
+#!/bin/bash
+
 echo "blocks"
 ls blocks
 
@@ -7,11 +9,11 @@ ls transactions
 echo "token_transfers"
 ls token_transfers
 
-echo "receipts"
-ls receipts
-
 echo "transaction_hashes"
 ls transaction_hashes
+
+echo "receipts"
+ls receipts
 
 echo "logs"
 ls logs
@@ -27,3 +29,5 @@ ls contracts
 
 # Log file system data to monitor EBS disk space
 df -h
+
+echo "SCRAPING BLOCK RANGE: $START_BLOCK-$END_BLOCK"

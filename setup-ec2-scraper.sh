@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Install geth (go-ethereum):
 sudo apt-get install software-properties-common
 sudo add-apt-repository -y ppa:ethereum/ethereum
@@ -25,6 +27,9 @@ sudo apt-get install python3.6-dev
 # Install python packages
 sudo apt-get install python3-pip
 sudo -H pip3 install -e .
+
+sudo pip3 install awscli
+aws configure
 
 echo "Installed and started geth, enabled python 3.6, installed pip packages"
 echo "Ready to run export_all.sh script"
