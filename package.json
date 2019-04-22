@@ -1,0 +1,21 @@
+{
+  "name": "ethereum-smart-contract-analysis",
+  "version": "1.0.0",
+  "description": "### Setup Instructions",
+  "main": "contract-analysis.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SteveVitali/ethereum-smart-contract-analysis.git"
+  },
+  "author": "Steven Vitali",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SteveVitali/ethereum-smart-contract-analysis/issues"
+  },
+  "homepage": "https://github.com/SteveVitali/ethereum-smart-contract-analysis#readme"
+}
