@@ -1,5 +1,9 @@
 /web-app/node_modules
 /web-app/dist
 /ethereum-etl
+/ethereumetl
 .DS_Store
+nohup.out
 /node_modules
+/analysis-data
+
