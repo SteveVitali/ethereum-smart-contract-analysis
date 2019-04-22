@@ -168,6 +168,7 @@ select count(*) from transactions; # ~7,500,000
 ```
 aws s3 sync s3://ethereum-blockchain-analysis-svitali .
 ```
+NOTE: this may take a long time, possibly a few hours, depending on the level of EC2 instance deployed.
 
 (You may also need to install the Python 3.6 specific version of `gdbm`: `sudo apt-get install python3.6-gdbm`)
 
