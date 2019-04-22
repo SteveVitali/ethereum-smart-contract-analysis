@@ -160,7 +160,8 @@ select count(*) from transactions; # ~7,500,000
 
 ## Manual Analysis with node.js -- EC2 Setup Instructions
 
-- Spin up a new Amazon EC2 instance (e.g., a t2.large)
+- Spin up a new Amazon EC2 instance. Make sure that there is enough disk space; a good lower bound is the sum of the [size of a fast `geth` sync](https://etherscan.io/chart2/chaindatasizefast) (now about 135GB) plus the size of the S3 bucket with the exported CSV's (now about 450GB).
+	- E.g., spin up a `t2.large` instance of Ubuntu Server 16.04 LTS (HVM) with an EBS volume of 800 GiB
 
 - Run `bash setup-ec2-scraper.sh` to configure/install everything (note: it may take several hours for `geth` to re-sync)
 
