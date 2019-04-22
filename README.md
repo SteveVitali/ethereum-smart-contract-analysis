@@ -173,4 +173,16 @@ NOTE: this may take a long time, possibly a few hours, depending on the level of
 
 (You may also need to install the Python 3.6 specific version of `gdbm`: `sudo apt-get install python3.6-gdbm`)
 
-
+Once the export is complete, running `du --summary --human-readable *`) from `ethereumetl/export` should return something approximating this (at the time of writing, END_BLOCK=7532178):
+```
+7.6G	blocks
+502M	contract_addresses
+141M	contracts
+146G	logs
+69G	receipts
+14M	token_addresses
+5.6M	tokens
+42G	token_transfers
+27G	transaction_hashes
+161G	transactions
+```
