@@ -7,8 +7,8 @@ sudo apt-get update
 sudo apt-get install ethereum
 geth account new
 
-# Start geth
-nohup geth --cache=1024 &
+# Start geth and enable the RCP server on localhost:8545
+nohup geth --cache=1024 --rpc --rpcport "8545" --rpcaddr "127.0.0.1" &
 
 # Clone Ethereum ETL (my fork) and install dependencies
 git clone https://github.com/SteveVitali/ethereum-etl.git
