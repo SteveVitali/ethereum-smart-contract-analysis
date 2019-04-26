@@ -55,8 +55,8 @@ function scrapeBytecodeForCurrentBatch(callback) {
   const lineReader = new LineByLineReader(inputCsvPath);
   const cacheStream = fs.createWriteStream(JSON_CACHE_PATH);
 
-  const batchWaitTime = 0;
-  const batchLineCount = 0;
+  let batchWaitTime = 0;
+  let batchLineCount = 0;
 
   const batchStartTime = new Date();
   const secondsSince = () => (new Date() - batchStartTime) / 1000;
@@ -92,7 +92,7 @@ function scrapeBytecodeForCurrentBatch(callback) {
       waitTime = new Date();
       web3.eth.getCode(address).then(bytecode => {
         delay = new Date() - waitTime;
-        log(`Bytecode#${++responseCount} (${delay}ms): ${bytecode}`);
+        log(`Bytecode(${delay}ms): ${bytecode}`);
         delete addressRequestMap[address];
         // ... do other stuff
       }).catch(console.log);
@@ -110,10 +110,11 @@ function scrapeBytecodeForCurrentBatch(callback) {
     // On local machine: Processed 2682461 in 281.728s
     //   with file `logs_07500000_07532178`
     //   ~10,000 lines per second
-    console.log(`---SCRAPE STATES FOR BATCH ${inputCsvPath}---`);
+    const end = currentBatchStartBlock + BATCH_SIZE - 1;
+    console.log(`\nSCRAPE STATS FOR BATCH ${currentBatchStartBlock}-${end}:`);
     console.log(`  Processed ${batchLineCount} with ${batchWaitTime}ms delay`);
-    console.log('TOTAL:', lineCount, 'lines in', secondsSince() + 's')
-    console.log(`TOTAL: ${totalWaitTime}ms waiting to queue requests`);
+    console.log('TOTAL:', totalLineCount, 'lines in', secondsSince() + 's')
+    console.log(`TOTAL: ${totalWaitTime}ms waiting to queue requests\n`);
 
     // INCREMENT currentBatchStartBlock and CALL CALLBACK
     currentBatchStartBlock += BATCH_SIZE;
@@ -121,11 +122,11 @@ function scrapeBytecodeForCurrentBatch(callback) {
   });
 }
 
-const notScrapingLastBatch = () => (
-  currentBatchStartBlock + BATCH_SIZE < END_BLOCK
+const notFinishedScrapingLastBatch = () => (
+  currentBatchStartBlock <= END_BLOCK
 );
 
-async.whilst(notScrapingLastBatch, scrapeBytecodeForCurrentBatch, (err) => {
+async.whilst(notFinishedScrapingLastBatch, scrapeBytecodeForCurrentBatch, (err) => {
   err && console.log(err);
   console.log('-------------------------------');
   console.log(`Finished scraping block range ${START_BLOCK}-${END_BLOCK}`);
