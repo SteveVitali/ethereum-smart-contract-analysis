@@ -3,9 +3,6 @@ const fs = require('fs');
 const LineByLineReader = require('line-by-line');
 const Web3 = require('web3');
 
-const GETH_URL = 'http://localhost:8545';
-const web3 = new Web3(new Web3.providers.HttpProvider(GETH_URL));
-
 const argv = require('minimist')(process.argv.slice(2));
 
 const EXPORT_DIR = argv['export-path'] || 'ethereumetl/export';
@@ -16,15 +13,8 @@ const BATCH_SIZE = argv.b || argv['batch-size'] || 100000;
 const START_BLOCK = argv.s || argv['start-block'] || 0;
 const END_BLOCK = argv.e || argv['end-block'] || 7532178;
 
-let currentBatchStartBlock = START_BLOCK;
-
-const makeCsvPathForBatch = () => {
-  const s = ('00000000' + currentBatchStartBlock).slice(-8);
-  const e = ('00000000' + (currentBatchStartBlock + BATCH_SIZE - 1)).slice(-8);
-  return `${CSV_DIR}/start_block\=${s}/end_block\=${e}/${TABLE}_${s}_${e}.csv`;
-};
-
-const INPUT_CSV_PATH = makeCsvPathForBatch();
+const GETH_URL = argv.g || argv['geth-url'] || 'http://localhost:8545';
+const web3 = new Web3(new Web3.providers.HttpProvider(GETH_URL));
 
 const CACHE_DIR = argv['cache-dir'] || 'analysis-data';
 const JSON_CACHE_PATH = `${CACHE_DIR}/json-cache.json`;
@@ -36,79 +26,107 @@ const log = (str) => DEBUG && console.log(str);
 // Max number of concurrent web3 bytecode requests
 const MAX_THREADS = argv.t || argv['threads'] || 100;
 
-// For each pending async bytecode request, store data here
-let addressRequestMap = {};
+// Global to be incremented by BATCH_SIZE after each async.whilst iteration
+let currentBatchStartBlock = START_BLOCK;
 
-// const dataStream = fs.createReadStream(INPUT_CSV_PATH);
-console.log('Scraping bytecodes from CSV at', INPUT_CSV_PATH);
-const lineReader = new LineByLineReader(INPUT_CSV_PATH);
-const cacheStream = fs.createWriteStream(JSON_CACHE_PATH);
+const makeCsvPathForBatch = () => {
+  const s = ('00000000' + currentBatchStartBlock).slice(-8);
+  const e = ('00000000' + (currentBatchStartBlock + BATCH_SIZE - 1)).slice(-8);
+  return `${CSV_DIR}/start_block\=${s}/end_block\=${e}/${TABLE}_${s}_${e}.csv`;
+};
+
+// For each pending async bytecode request, store data in this global map
+let addressRequestMap = {};
 
 const canAddThread = () => Object.keys(addressRequestMap).length < MAX_THREADS;
 const queueIsFull = () => !canAddThread();
 const WAIT_DELAY = 10;
 const wait = (callback) => setTimeout(() => callback(null), WAIT_DELAY);
 
-let totalWaitTime = 0;
-let lineCount = 0;
-let responseCount = 0;
-
 const startTime = new Date();
-const secondsSince = () => (new Date() - startTime) / 1000;
+let totalWaitTime = 0;
+let totalLineCount = 0;
 
+// Scrape a contract CSV's contract addresses for their bytecodes
+function scrapeBytecodeForCurrentBatch(callback) {
+  const inputCsvPath = makeCsvPathForBatch();
 
-lineReader.on('line', (line) => {
-  // Skip the first line
-  if (++lineCount === 1) return;
+  console.log('Scraping bytecodes from CSV at', inputCsvPath);
+  const lineReader = new LineByLineReader(inputCsvPath);
+  const cacheStream = fs.createWriteStream(JSON_CACHE_PATH);
 
-  const lineItems = line.split(',');
-  let [address, emptyBytecode, sigHashes, isErc20, isErc721] = lineItems;
+  const batchWaitTime = 0;
+  const batchLineCount = 0;
 
-  // Wait until less than MAX_THREADS concurrent web3 requests are running,
-  const didWait = !canAddThread();
-  if (didWait) {
-    lineReader.pause();
-    log('Pausing line reader at ' + lineCount + ' until space opens');
-  }
+  const batchStartTime = new Date();
+  const secondsSince = () => (new Date() - batchStartTime) / 1000;
 
-  let waitTime = new Date();
-  async.whilst(queueIsFull, wait, (err) => {
-    let delay = new Date() - waitTime;
-    totalWaitTime += delay;
-    if (didWait) console.log('Waited', delay, 'out of', totalWaitTime);
+  lineReader.on('line', (line) => {
+    // Skip the first line
+    if (++batchLineCount === 1) return;
 
-    // Add current contract lineItems to the addressRequestMap map to
-    // indicate that it is currently having its bytecode requested;
-    // resume the line-reader; and execute the web3 bytecode request Promise
-    addressRequestMap[lineItems[0]] = lineItems;
+    const lineItems = line.split(',');
+    let [address, emptyBytecode, sigHashes, isErc20, isErc721] = lineItems;
+
+    // Wait until less than MAX_THREADS concurrent web3 requests are running,
+    const didWait = !canAddThread();
     if (didWait) {
-      lineReader.resume();
-      log('resuming reader');
+      lineReader.pause();
+      log('Pausing line reader at line', batchLineCount);
     }
 
-    log('Running web3 bytecode request:' + address);
-    waitTime = new Date();
-    web3.eth.getCode(address).then((bytecode) => {
-      delay = new Date() - waitTime;
-      log(`Bytecode#${++responseCount} (${delay}ms): ${bytecode}`);
-      delete addressRequestMap[address];
-      // ... do other stuff
-      //
-    })
-    .catch((err) => console.log('ERROR FETCHING BYTECODE', err));
+    let waitTime = new Date();
+
+    async.whilst(queueIsFull, wait, (err) => {
+      let delay = new Date() - waitTime;
+      batchWaitTime += delay;
+      didWait && console.log('Waited', delay, 'ms');
+
+      // Add current contract lineItems to the addressRequestMap map to
+      // indicate that it is currently having its bytecode requested;
+      // resume the line-reader; and execute the web3 bytecode request Promise
+      addressRequestMap[lineItems[0]] = lineItems;
+      didWait && lineReader.resume();
+
+      // log('Running web3 bytecode request:' + address);
+      waitTime = new Date();
+      web3.eth.getCode(address).then(bytecode => {
+        delay = new Date() - waitTime;
+        log(`Bytecode#${++responseCount} (${delay}ms): ${bytecode}`);
+        delete addressRequestMap[address];
+        // ... do other stuff
+      }).catch(console.log);
+    });
   });
+
+  lineReader.on('error', callback);
+
+  lineReader.on('end', () => {
+    totalLineCount += batchLineCount;
+    totalWaitTime += batchWaitTime;
+
+    cacheStream.end();
+
+    // On local machine: Processed 2682461 in 281.728s
+    //   with file `logs_07500000_07532178`
+    //   ~10,000 lines per second
+    console.log(`---SCRAPE STATES FOR BATCH ${inputCsvPath}---`);
+    console.log(`  Processed ${batchLineCount} with ${batchWaitTime}ms delay`);
+    console.log('TOTAL:', lineCount, 'lines in', secondsSince() + 's')
+    console.log(`TOTAL: ${totalWaitTime}ms waiting to queue requests`);
+
+    // INCREMENT currentBatchStartBlock and CALL CALLBACK
+    currentBatchStartBlock += BATCH_SIZE;
+    callback(null);
+  });
+}
+
+const notScrapingLastBatch = () => (
+  currentBatchStartBlock + BATCH_SIZE < END_BLOCK
+);
+
+async.whilst(notScrapingLastBatch, scrapeBytecodeForCurrentBatch, (err) => {
+  err && console.log(err);
+  console.log('-------------------------------');
+  console.log(`Finished scraping block range ${START_BLOCK}-${END_BLOCK}`);
 });
-
-
-lineReader.on('end', () => {
-  cacheStream.end();
-  // On local machine: Processed 2682461 in 281.728s
-  //   with file `logs_07500000_07532178`
-  //   ~10,000 lines per second
-  console.log('Processed', lineCount, 'in', secondsSince() + 's')
-  console.log(`Spent total of ${totalWaitTime}ms waiting to queue requests`);
-});
-
-
-lineReader.on('error', (err) => console.log(err));
-
