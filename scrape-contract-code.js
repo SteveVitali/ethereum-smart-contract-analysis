@@ -6,12 +6,16 @@ const Web3 = require('web3');
 const GETH_URL = 'http://localhost:8545';
 const web3 = new Web3(new Web3.providers.HttpProvider(GETH_URL));
 
-const EXPORT_DIR = 'ethereumetl/export';
+const argv = require('minimist')(process.argv.slice(2));
+
+const EXPORT_DIR = argv['export-path'] || 'ethereumetl/export';
 const TABLE = 'contracts';
 const CSV_DIR = `${EXPORT_DIR}/${TABLE}`;
 
-const BATCH_SIZE = 100000;
-const START_BLOCK = 0;
+const BATCH_SIZE = argv.b || argv['batch-size'] || 100000;
+const START_BLOCK = argv.s || argv['start-block'] || 0;
+const END_BLOCK = argv.e || argv['end-block'] || 7532178;
+
 let currentBatchStartBlock = START_BLOCK;
 
 const makeCsvPathForBatch = () => {
@@ -22,17 +26,21 @@ const makeCsvPathForBatch = () => {
 
 const INPUT_CSV_PATH = makeCsvPathForBatch();
 
-const JSON_CACHE_PATH = './analysis-data/json-cache.json';
+const CACHE_DIR = argv['cache-dir'] || 'analysis-data';
+const JSON_CACHE_PATH = `${CACHE_DIR}/json-cache.json`;
 
+const DEBUG = argv.d || argv['debug'];
 const LOG_EACH = 1;
+const log = (str) => DEBUG && console.log(str);
 
 // Max number of concurrent web3 bytecode requests
-const MAX_THREADS = 100;
+const MAX_THREADS = argv.t || argv['threads'] || 100;
 
 // For each pending async bytecode request, store data here
 let addressRequestMap = {};
 
 // const dataStream = fs.createReadStream(INPUT_CSV_PATH);
+console.log('Scraping bytecodes from CSV at', INPUT_CSV_PATH);
 const lineReader = new LineByLineReader(INPUT_CSV_PATH);
 const cacheStream = fs.createWriteStream(JSON_CACHE_PATH);
 
@@ -49,9 +57,6 @@ const startTime = new Date();
 const secondsSince = () => (new Date() - startTime) / 1000;
 
 
-lineReader.on('error', (err) => console.log(err));
-
-
 lineReader.on('line', (line) => {
   // Skip the first line
   if (++lineCount === 1) return;
@@ -63,7 +68,7 @@ lineReader.on('line', (line) => {
   const didWait = !canAddThread();
   if (didWait) {
     lineReader.pause();
-    console.log('Pausing line reader at ' + lineCount + ' until space opens');
+    log('Pausing line reader at ' + lineCount + ' until space opens');
   }
 
   let waitTime = new Date();
@@ -78,14 +83,14 @@ lineReader.on('line', (line) => {
     addressRequestMap[lineItems[0]] = lineItems;
     if (didWait) {
       lineReader.resume();
-      console.log('resuming reader');
+      log('resuming reader');
     }
 
-    console.log('Running web3 bytecode request:' + address);
+    log('Running web3 bytecode request:' + address);
     waitTime = new Date();
     web3.eth.getCode(address).then((bytecode) => {
       delay = new Date() - waitTime;
-      console.log(`Bytecode#${++responseCount} (${delay}ms): ${bytecode}`);
+      log(`Bytecode#${++responseCount} (${delay}ms): ${bytecode}`);
       delete addressRequestMap[address];
       // ... do other stuff
       //
@@ -103,4 +108,7 @@ lineReader.on('end', () => {
   console.log('Processed', lineCount, 'in', secondsSince() + 's')
   console.log(`Spent total of ${totalWaitTime}ms waiting to queue requests`);
 });
+
+
+lineReader.on('error', (err) => console.log(err));
 
