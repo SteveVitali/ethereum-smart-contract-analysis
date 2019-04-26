@@ -4,6 +4,7 @@
   "description": "### Setup Instructions",
   "main": "contract-analysis.js",
   "dependencies": {
+    "async": "^2.6.2",
     "line-by-line": "^0.1.6",
     "readline": "^1.3.0",
     "web3": "^1.0.0-beta.52"
