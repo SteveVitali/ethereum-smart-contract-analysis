@@ -11,7 +11,8 @@ const CSV_DIR = `${EXPORT_DIR}/${TABLE}`;
 
 const BATCH_SIZE = argv.b || argv['batch-size'] || 100000;
 const START_BLOCK = argv.s || argv['start-block'] || 0;
-const END_BLOCK = argv.e || argv['end-block'] || 7532178;
+const MAX_BLOCK = argv.m || argv['max-block'] || 7532178;
+const END_BLOCK = argv.e || argv['end-block'] || MAX_BLOCK;
 
 const GETH_URL = argv.g || argv['geth-url'] || 'http://localhost:8545';
 const web3 = new Web3(new Web3.providers.HttpProvider(GETH_URL));
@@ -31,7 +32,8 @@ let currentBatchStartBlock = START_BLOCK;
 
 const makeCsvPathForBatch = () => {
   const s = ('00000000' + currentBatchStartBlock).slice(-8);
-  const e = ('00000000' + (currentBatchStartBlock + BATCH_SIZE - 1)).slice(-8);
+  const endBlock = Math.min(currentBatchStartBlock + BATCH_SIZE - 1, MAX_BLOCK);
+  const e = ('00000000' + endBlock).slice(-8);
   return `${CSV_DIR}/start_block\=${s}/end_block\=${e}/${TABLE}_${s}_${e}.csv`;
 };
 
@@ -92,7 +94,7 @@ function scrapeBytecodeForCurrentBatch(callback) {
       waitTime = new Date();
       web3.eth.getCode(address).then(bytecode => {
         delay = new Date() - waitTime;
-        log(`Bytecode(${delay}ms): ${bytecode}`);
+        bytecode !== '0x' && log(`Bytecode(${delay}ms): ${bytecode}`);
         delete addressRequestMap[address];
         // ... do other stuff
       }).catch(console.log);
