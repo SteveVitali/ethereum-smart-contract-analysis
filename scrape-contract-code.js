@@ -9,6 +9,9 @@ const EXPORT_DIR = argv['export-path'] || 'ethereumetl/export';
 const TABLE = 'contracts';
 const CSV_DIR = `${EXPORT_DIR}/${TABLE}`;
 
+const OUTPUT_DIR = argv['output-dir'] || `${EXPORT_DIR}/contracts_bytecode`;
+const OUTPUT_TABLE = argv['output-table-name'] || 'contracts_bytecode'; 
+
 const BATCH_SIZE = argv.b || argv['batch-size'] || 100000;
 const START_BLOCK = argv.s || argv['start-block'] || 0;
 const MAX_BLOCK = argv.m || argv['max-block'] || 7532178;
@@ -16,9 +19,6 @@ const END_BLOCK = argv.e || argv['end-block'] || MAX_BLOCK;
 
 const GETH_URL = argv.g || argv['geth-url'] || 'http://localhost:8545';
 const web3 = new Web3(new Web3.providers.HttpProvider(GETH_URL));
-
-const CACHE_DIR = argv['cache-dir'] || 'analysis-data';
-const JSON_CACHE_PATH = `${CACHE_DIR}/json-cache.json`;
 
 const DEBUG = argv.d || argv['debug'];
 const LOG_EACH = 1;
@@ -30,11 +30,11 @@ const MAX_THREADS = argv.t || argv['threads'] || 100;
 // Global to be incremented by BATCH_SIZE after each async.whilst iteration
 let currentBatchStartBlock = START_BLOCK;
 
-const makeCsvPathForBatch = () => {
+const makeCsvPathForBatch = (dir, table) => {
   const s = ('00000000' + currentBatchStartBlock).slice(-8);
   const endBlock = Math.min(currentBatchStartBlock + BATCH_SIZE - 1, MAX_BLOCK);
   const e = ('00000000' + endBlock).slice(-8);
-  return `${CSV_DIR}/start_block\=${s}/end_block\=${e}/${TABLE}_${s}_${e}.csv`;
+  return [`${dir}/start_block\=${s}/end_block\=${e}`, `${table}_${s}_${e}.csv`];
 };
 
 // For each pending async bytecode request, store data in this global map
@@ -42,7 +42,9 @@ let addressRequestMap = {};
 
 const canAddThread = () => Object.keys(addressRequestMap).length < MAX_THREADS;
 const queueIsFull = () => !canAddThread();
+const queueIsNonEmpty = () => Object.keys(addressRequestMap).length > 0;
 const WAIT_DELAY = 10;
+
 const wait = (callback) => setTimeout(() => callback(null), WAIT_DELAY);
 
 const startTime = new Date();
@@ -51,11 +53,25 @@ let totalLineCount = 0;
 
 // Scrape a contract CSV's contract addresses for their bytecodes
 function scrapeBytecodeForCurrentBatch(callback) {
-  const inputCsvPath = makeCsvPathForBatch();
+  const [inputDir, inputFile] = makeCsvPathForBatch(CSV_DIR, TABLE);
+  const [outputDir, outputFile] = makeCsvPathForBatch(OUTPUT_DIR, OUTPUT_TABLE);
+  const inPath = `${inputDir}/${inputFile}`;
+  const outPath = `${outputDir}/${outputFile}`;
 
-  console.log('Scraping bytecodes from CSV at', inputCsvPath);
-  const lineReader = new LineByLineReader(inputCsvPath);
-  const cacheStream = fs.createWriteStream(JSON_CACHE_PATH);
+  if (fs.existsSync(outPath)) {
+    console.log('SKIPPING BATCH: output already written to', outPath);
+    currentBatchStartBlock += BATCH_SIZE;
+    return callback(null);
+  }
+  else {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+  console.log('___________________________________________');
+  console.log('Scraping bytecodes from CSV at', inPath);
+  console.log('Writing new CSV with bytecode to', outPath);
+
+  const lineReader = new LineByLineReader(inPath);
+  const csvWriter = fs.createWriteStream(outPath, { flags:'a' });
 
   let batchWaitTime = 0;
   let batchLineCount = 0;
@@ -65,7 +81,9 @@ function scrapeBytecodeForCurrentBatch(callback) {
 
   lineReader.on('line', (line) => {
     // Skip the first line
-    if (++batchLineCount === 1) return;
+    if (++batchLineCount === 1) {
+      return csvWriter.write(line + '\n'); 
+    };
 
     const lineItems = line.split(',');
     let [address, emptyBytecode, sigHashes, isErc20, isErc721] = lineItems;
@@ -74,7 +92,7 @@ function scrapeBytecodeForCurrentBatch(callback) {
     const didWait = !canAddThread();
     if (didWait) {
       lineReader.pause();
-      log('Pausing line reader at line', batchLineCount);
+      // log('Pausing line reader at line', batchLineCount);
     }
 
     let waitTime = new Date();
@@ -82,7 +100,7 @@ function scrapeBytecodeForCurrentBatch(callback) {
     async.whilst(queueIsFull, wait, (err) => {
       let delay = new Date() - waitTime;
       batchWaitTime += delay;
-      didWait && console.log('Waited', delay, 'ms');
+      // didWait && console.log('Waited', delay, 'ms');
 
       // Add current contract lineItems to the addressRequestMap map to
       // indicate that it is currently having its bytecode requested;
@@ -91,45 +109,64 @@ function scrapeBytecodeForCurrentBatch(callback) {
       didWait && lineReader.resume();
 
       // log('Running web3 bytecode request:' + address);
-      waitTime = new Date();
+      // waitTime = new Date();
       web3.eth.getCode(address).then(bytecode => {
-        delay = new Date() - waitTime;
-        bytecode !== '0x' && log(`Bytecode(${delay}ms): ${bytecode}`);
+        // delay = new Date() - waitTime;
+        // bytecode !== '0x' && log('Bytecode: ' + bytecode);
+
+        // Delete contract address from map since its bytecode has been scraped
         delete addressRequestMap[address];
-        // ... do other stuff
+
+        // Write the new line of scraped bytecode to the output CSV
+        const outLine = [address, bytecode, sigHashes, isErc20, isErc721];
+        csvWriter.write(outLine.join(',') + '\n');
+
       }).catch(console.log);
     });
   });
 
-  lineReader.on('error', callback);
-
   lineReader.on('end', () => {
-    totalLineCount += batchLineCount;
-    totalWaitTime += batchWaitTime;
+    // Wait for queue to empty, since end of input CSV may be read before
+    // all the updated bytecodes are written to output, which means we must
+    // wait to close the output stream    
+    const startWait = new Date();
+    async.whilst(queueIsNonEmpty, wait, (err) => {
+      err && console.log(err);
+      console.log('Waited', new Date() - startWait, 'ms for queue to empty');
+      
+      csvWriter.end();
 
-    cacheStream.end();
+      totalLineCount += batchLineCount;
+      totalWaitTime += batchWaitTime;
 
-    // On local machine: Processed 2682461 in 281.728s
-    //   with file `logs_07500000_07532178`
-    //   ~10,000 lines per second
-    const end = currentBatchStartBlock + BATCH_SIZE - 1;
-    console.log(`\nSCRAPE STATS FOR BATCH ${currentBatchStartBlock}-${end}:`);
-    console.log(`  Processed ${batchLineCount} with ${batchWaitTime}ms delay`);
-    console.log('TOTAL:', totalLineCount, 'lines in', secondsSince() + 's')
-    console.log(`TOTAL: ${totalWaitTime}ms waiting to queue requests\n`);
+      // On local machine: Processed 2682461 in 281.728s
+      //   with file 'logs_07500000_07532178'
+      //   ~10,000 lines per second
+      const end = currentBatchStartBlock + BATCH_SIZE - 1;
+      console.log('SCRAPE STATS FOR BATCH' + currentBatchStartBlock + '-' + end);
+      console.log('Processed', batchLineCount, 'with', batchWaitTime + 'ms delay');
+      console.log(totalLineCount, secondsSince(), totalWaitTime); 
 
-    // INCREMENT currentBatchStartBlock and CALL CALLBACK
-    currentBatchStartBlock += BATCH_SIZE;
-    callback(null);
+      // INCREMENT currentBatchStartBlock and CALL CALLBACK
+      currentBatchStartBlock += BATCH_SIZE;
+      callback(null);
+    });
   });
+
+  lineReader.on('error', callback);
 }
+
 
 const notFinishedScrapingLastBatch = () => (
   currentBatchStartBlock <= END_BLOCK
 );
 
+// Scrape each batch and write it to new file
+// Note: after each async scrapeBytecodeForCurrrentBatch call,
+// currentBatchStartBlock is incremented by BATCH_SIZE
 async.whilst(notFinishedScrapingLastBatch, scrapeBytecodeForCurrentBatch, (err) => {
   err && console.log(err);
   console.log('-------------------------------');
-  console.log(`Finished scraping block range ${START_BLOCK}-${END_BLOCK}`);
+  console.log('Finished scraping block range' + START_BLOCK + '-' + END_BLOCK);
 });
+
