@@ -215,3 +215,94 @@ node -e "console.log('Running Node.js ' + process.version)"
 
 At this point, the `npm install` should succeed, and we should be able to run the `contract-analysis.js` script and the like without error.
 
+
+## Setting up Oyente
+Install basics for Python 2.x in case they are not installed already
+```
+sudo apt-get install python
+sudo apt install python-pip
+pip install virtualenv
+```
+
+Start Python Virtualesbinv
+```
+python -m virtualenv envsp
+source env/bin/activate
+```
+
+Install Oyente (my fork)
+```
+git clone https://github.com/SteveVitali/oyente.git
+```
+
+### Install solidity v0.4.17
+Use `wget` to copy v0.4.17 from [here](https://github.com/ethereum/solidity/releases/tag/v0.4.17):
+```
+# Copy the source
+wget https://github.com/ethereum/solidity/releases/download/v0.4.17/solidity_0.4.17.tar.gz
+
+# Unpack the .tar.gz
+tar xf solidity_0.4.17.tar.gz
+
+# Install dependencies and build source
+cd solidity_0.4.17/
+./scripts/install_deps.sh
+
+# The developers of solidity have set a gcc compilation flag that treats all warnings as errors, which makes compilation fail for this version.
+# So you'll need to go into the makefile(s) and remove the `-Werror` flag to get compilation to succeed
+
+# Open the .cmake file and comment out line 41: add_compile_options(-Werror)
+> vim ./cmake/EthCompilerSettings.cmake #Comment out line 41
+
+# Run the build script
+./scripts/build.sh
+```
+
+### Install `evm` v1.6.6
+Download `geth` 1.6.6 from the geth [downloads page](https://geth.ethereum.org/downloads/) using wget:
+```
+wget https://gethstore.blob.core.windows.net/builds/geth-alltools-linux-amd64-1.6.6-10a45cb5.tar.gz
+
+tar xf geth-alltools-linux-amd64-1.6.6-10a45cb5.tar.gz
+
+# Remove evm binary if one exists and copy 1.6.6 binary to /usr/bin
+sudo rm /usr/bin/evm
+sudo cp geth-alltools-linux-amd64-1.6.6-10a45cb5/evm /usr/bin/evm
+```
+
+### Install `Z3` v4.5.0
+Download the source from the [downloads page](https://github.com/Z3Prover/z3/releases/tag/z3-4.5.0) using `wget`:
+```
+wget https://github.com/Z3Prover/z3/archive/z3-4.5.0.zip
+
+cd z3-z3-4.5.0
+
+python scripts/mk_make.py --python
+
+cd build
+
+make
+
+sudo make install
+```
+
+### Install remaining dependencies for Oytente
+To be compatible with `web3` later on, be sure to run:
+```
+sudo apt-get install python3-venv
+python3 -m venv venv
+pip install web3
+sudo apt-get install python3.6-dev
+```
+
+Now, install `requests` and `web3`:
+```
+pip install requests
+pip install web3
+```
+
+Finally, test the `oyente` command on a test file (e.g. create a test file ex.evm containing the text of the bytecode scraped for a contract from the previous step):
+```
+python oyente.py -s ex.evm -b
+```
+

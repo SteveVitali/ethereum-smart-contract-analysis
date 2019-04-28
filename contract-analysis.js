@@ -39,4 +39,3 @@ lineReader.on('close', () => {
   //   57k lines/sec; ~36sec/GB ==> ~4.5hr for 450
   console.log('Processed', lineCount, 'in', secondsSince() + 's');
 });
-
