@@ -1,7 +1,7 @@
 const async = require('async');
 const fs = require('fs');
 const LineByLineReader = require('line-by-line');
-const csvHeaders = require('csv-headers');
+const csvHeaders = require('./csv-headers.js');
 
 const argv = require('minimist')(process.argv.slice(2));
 
@@ -17,7 +17,7 @@ const CSV_DIR = `${EXPORT_DIR}/${TABLE}`;
 const OUTPUT_DIR = argv['output-dir'] || `${EXPORT_DIR}/contracts_analysis`;
 const OUTPUT_TABLE = argv['output-table-name'] || 'contracts_analysis'; 
 
-const OUTPUT_HEADER = csvHeaders.contracts_analysis.join(',');
+const OUTPUT_HEADER = csvHeaders.contracts_analysis;
 
 const BATCH_SIZE = argv.b || argv['batch-size'] || 100000;
 const START_BLOCK = argv.s || argv['start-block'] || 0;
@@ -59,8 +59,16 @@ let totalLineCount = 0;
 // bytecode `bytecode`; when complete, send Json result to callback `done`
 const launchOyenteThread = (address, bytecode, done) => {
   // Write the bytecode to a temporary file <contract-address>.evm for oyente
+  // Note: we slice the first two characters of the bytecode '0x'
   const byteCodePath = `${address}.evm`;
-  fs.writeFile(byteCodePath, bytecode, (err) => {
+  const evmCode = bytecode.slice(2);
+
+  if (evmCode.length === 0) {
+    log('Empty bytecode for address ' + address);
+    return done(null, { vulnerabilities: {} });
+  }
+
+  fs.writeFile(byteCodePath, evmCode, (err) => {
     if (err) return done(err);
 
     let shell = new PythonShell('oyente.py', {
@@ -71,10 +79,15 @@ const launchOyenteThread = (address, bytecode, done) => {
 
     let jsonResult = '';
     shell.on('message', message => jsonResult += message);
-    shell.on('stderr', err => done(err));
-    shell.on('error', err => done(err));
+    shell.on('stderr', err => {
+      if (err.slice(0, 4) == 'INFO') return;
+      else return done(err); 
+    });
+    // Assume all errors will be handled by stderr above
+    shell.on('error', err => {});
     shell.on('close', () => {
       // Delete temporary bytecode file and return Json result
+      jsonResult = jsonResult.length > 0 ? jsonResult : '{}';
       fs.unlink(byteCodePath, err => done(err, JSON.parse(jsonResult)));
     });
   });
@@ -120,7 +133,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
     const didWait = !canAddThread();
     if (didWait) {
       lineReader.pause();
-      log('Pausing line reader at line', batchLineCount);
+      log('Pausing line reader at line ' + batchLineCount);
     }
 
     let waitTime = new Date();
@@ -128,7 +141,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
     async.whilst(queueIsFull, wait, (err) => {
       let delay = new Date() - waitTime;
       batchWaitTime += delay;
-      didWait && console.log('Waited', delay, 'ms');
+      didWait && console.log('Waited', delay, 'ms for open space in queue');
 
       // Add current contract lineItems to the addressRequestMap map to
       // indicate that it is currently having its bytecode analyzed;
@@ -136,11 +149,20 @@ function analyzeBytecodesForCurrentBatch(callback) {
       addressRequestMap[lineItems[0]] = lineItems;
       didWait && lineReader.resume();
 
-
-      log('Running oyente bytecode analysis for contract:' + address);
       waitTime = new Date();
       launchOyenteThread(address, bytecode, (err, jsonResult) => {
-        log('result', jsonResult, 'delay', new Date() - waitTime);
+        log(JSON.stringify(jsonResult));
+        jsonResult = jsonResult || {};
+        jsonResult.vulnerabilities = jsonResult.vulnerabilities || {};
+        jsonResult.evm_code_coverage = jsonResult.evm_code_coverage || '';
+        ['callstack', 'reentrancy', 'time_dependency', 'integer_overflow',
+          'integer_underflow', 'money_concurrency'].forEach(v => {
+          jsonResult.vulnerabilities[v] = jsonResult.vulnerabilities[v] || '';
+        });
+        log(JSON.stringify(jsonResult));
+
+        if (err) console.log('OYENTE ERR:', err);
+        else log('Oyente fin ' + address + '(' + (new Date() - waitTime) + ')');
 
         // Delete contract address from map since its bytecode was analyzed
         delete addressRequestMap[address];
@@ -158,7 +180,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
           integer_underflow, money_concurrency
         ].join(',') + '\n');
 
-      }).catch(console.log);
+      });
     });
   });
 

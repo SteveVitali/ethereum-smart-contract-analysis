@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   blocks:
     `number,hash,parent_hash,nonce,sha3_uncles,logs_bloom,transactions_root,
     state_root,receipts_root,miner,difficulty,total_difficulty,size,extra_data,
@@ -17,7 +17,7 @@ export default {
   contracts_analysis:
     `address,bytecode,function_sighashes,is_erc20,is_erc721,` +
     `callstack,reentrancy,time_dependency,integer_overflow,` +
-    `integer_underflow,money_concurrency,evm_code_coverage`
+    `integer_underflow,money_concurrency,evm_code_coverage`,
 
   logs:
     `log_index,transaction_hash,transaction_index,block_hash,
@@ -38,4 +38,5 @@ export default {
   transactions:
     `hash,nonce,block_hash,block_number,transaction_index,
     from_address,to_address,value,gas,gas_price,input`
-}
+};
+
