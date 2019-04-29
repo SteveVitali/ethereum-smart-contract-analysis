@@ -17,7 +17,8 @@ module.exports = {
   contracts_analysis:
     `address,bytecode,function_sighashes,is_erc20,is_erc721,` +
     `callstack,reentrancy,time_dependency,integer_overflow,` +
-    `integer_underflow,money_concurrency,evm_code_coverage`,
+    `integer_underflow,money_concurrency,evm_code_coverage,` +
+    `oyente_err`,
 
   logs:
     `log_index,transaction_hash,transaction_index,block_hash,
