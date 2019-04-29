@@ -25,7 +25,7 @@ const MAX_BLOCK = argv.m || argv['max-block'] || 7532178;
 const END_BLOCK = argv.e || argv['end-block'] || MAX_BLOCK;
 
 const DEBUG = argv.d || argv['debug'];
-const LOG_EACH = 1;
+const LOG_EVERY = 1;
 const log = (str) => DEBUG && console.log(str);
 
 // Max number of concurrent oyente Python threads
@@ -53,8 +53,13 @@ const WAIT_DELAY = 10;
 const wait = (callback) => setTimeout(() => callback(null), WAIT_DELAY);
 
 const startTime = new Date();
+
+// Init stats variables
 let totalWaitTime = 0;
+let totalOyenteTime = 0;
 let totalLineCount = 0;
+let totalEmptyCount = 0;
+let totalErrorCount = 0;
 
 // Launch an oyente analysis of contract at address `address` with EVM
 // bytecode `bytecode`; when complete, send Json result to callback `done`
@@ -65,7 +70,8 @@ const launchOyenteThread = (address, bytecode, done) => {
   const evmCode = bytecode.slice(2);
 
   if (evmCode.length === 0) {
-    log('Empty bytecode for address ' + address);
+    totalEmptyCount += 1;
+    // log('Empty bytecode for address ' + address);
     return done(null, { vulnerabilities: {} });
   }
 
@@ -129,11 +135,13 @@ function analyzeBytecodesForCurrentBatch(callback) {
   let batchWaitTime = 0;
   let batchOyenteTime = 0;
   let batchLineCount = 0;
+  let batchErrorCount = 0;
   const batchStartTime = new Date();
 
   lineReader.on('line', (line) => {
     // Skip the first line, but write the header to the output Csv
     if (batchLineCount === 0) {
+      batchLineCount += 1;
       return csvWriter.write(OUTPUT_HEADER + '\n'); 
     };
 
@@ -169,18 +177,22 @@ function analyzeBytecodesForCurrentBatch(callback) {
           );
         });
 
-        err && console.log('OYENTE ERR:', err);
+        jsonResult.oyente_err = !!err;
+        if (err) {
+          console.log('OYENTE ERR:', err);
+          batchErrorCount += 1;
+        }
 
         // Write the new line of scraped bytecode to the output CSV
-        let { vulnerabilities, evm_code_coverage } = jsonResult;
+        let { vulnerabilities, evm_code_coverage, oyente_err } = jsonResult;
         let { callstack, reentrancy, time_dependency, integer_overflow,
               integer_underflow, money_concurrency } = vulnerabilities;
 
         // Write oyente results to output CSV
         csvWriter.write(
-          [ address, bytecode, sigHashes, isErc20, isErc721,
-            callstack, reentrancy, time_dependency, integer_overflow,
-            integer_underflow, money_concurrency].join(',') + '\n',
+          [ address, bytecode, sigHashes, isErc20, isErc721, callstack,
+            reentrancy, time_dependency, integer_overflow, integer_underflow,
+            money_concurrency, evm_code_coverage, oyente_err].join(',') + '\n',
           (err) => {
             err && console.log(err);
             // Delete contract address from map since its bytecode was analyzed
@@ -191,8 +203,10 @@ function analyzeBytecodesForCurrentBatch(callback) {
             batchOyenteTime += oyenteDelay;
             batchLineCount += 1;
 
-            console.log(`[${batchLineCount}] Ran oyente ${oyenteDelay}ms, ` +
-               `waited ${waitDelay}ms, ${numActiveThreads()} threads`);
+            if (batchLineCount % LOG_EVERY === 0) {
+              console.log(`[${batchLineCount}] Ran oyente ${oyenteDelay}ms, ` +
+                `waited ${waitDelay}ms, ${numActiveThreads()} threads`);
+            }
           }
         );
       });
@@ -213,13 +227,22 @@ function analyzeBytecodesForCurrentBatch(callback) {
 
       totalLineCount += batchLineCount;
       totalWaitTime += batchWaitTime;
+      totalOyenteTime += batchOyenteTime;
+      totalErrorCount += batchErrorCount;
 
       const end = currentBatchStartBlock + BATCH_SIZE - 1;
+
       console.log('SCRAPE STATS FOR BATCH' + currentBatchStartBlock + '-' + end);
-      console.log(`  Analyzed ${batchLineCount} lines, ${batchOyenteTime}ms ` +
-        `oyente time, ${batchWaitTime}ms queue wait time`);
-      console.log(`  ${totalLineCount} line ${new Date() - batchStartTime}s`);
-      console.log(totalWaitTime, 'total time spent'); 
+      console.log(`  Analyzed ${batchLineCount} lines, ${batchErrorCount} ` + 
+        `oyente error, ${batchOyenteTime}ms oyente time, ` +
+        `${batchWaitTime}ms queue wait time`);
+      console.log(`  ${totalLineCount} line ${new Date() - batchStartTime}ms`);
+
+      console.log('Total time', (totalWaitTime / 1000), 'seconds');
+      console.log('Total lines', totalLineCount);
+      console.log('Total queue wait', totalWaitTime);
+      console.log('Total oyente time', totalOyenteTime);
+      console.log('Total errors', totalErrorCount); 
 
       // INCREMENT currentBatchStartBlock and CALL CALLBACK
       currentBatchStartBlock += BATCH_SIZE;
