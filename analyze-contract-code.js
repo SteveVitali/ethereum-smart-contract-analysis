@@ -8,11 +8,6 @@ const csvHeaders = require('./csv-headers.js');
 
 const argv = require('minimist')(process.argv.slice(2));
 
-const PythonShell = require('python-shell').PythonShell;
-const PYTHON_PATH = argv['python-path'] || '/usr/bin/python';
-const OYENTE_PY_PATH = argv['oyente-path'] || './oyente/oyente/oyente.py';
-const OYENTE_PY_DIR = 'oyente/oyente';
-
 const EXPORT_DIR = argv['export-path'] || 'ethereumetl/export';
 const TABLE = 'contracts_bytecode';
 const CSV_DIR = `${EXPORT_DIR}/${TABLE}`;
@@ -32,7 +27,7 @@ const LOG_EVERY = argv.l || argv['log-every'] || 1;
 const log = (str) => DEBUG && console.log(str);
 
 // Max number of concurrent oyente Python threads
-const MAX_THREADS = argv.t || argv['threads'] || 4;
+const MAX_THREADS = argv.t || argv['threads'] || 1;
 
 // Global to be incremented by BATCH_SIZE after each async.whilst iteration
 let currentBatchStartBlock = START_BLOCK;
@@ -55,62 +50,25 @@ const queueIsFull = () => !canAddThread();
 const WAIT_DELAY = 10;
 const wait = (callback) => setTimeout(() => callback(null), WAIT_DELAY);
 
+const OYENTE_JS_WORKER_PATH = './oyente-worker.js';
+
 // Init stats variables
 let totalTotalTime = 0;
 let totalWaitTime = 0;
 let totalOyenteTime = 0;
 let totalLineCount = 0;
-let totalEmptyCount = 0;
 let totalErrorCount = 0;
 
-// Launch an oyente analysis of contract at address `address` with EVM
-// bytecode `bytecode`; when complete, send Json result to callback `done`
-const launchOyenteThread = (address, bytecode, done) => {
-  // Write the bytecode to a temporary file <contract-address>.evm for oyente
-  // Note: we slice the first two characters of the bytecode '0x'
-  const byteCodePath = `${address}.evm`;
-  const evmCode = bytecode.slice(2);
-
-  if (evmCode.length === 0) {
-    totalEmptyCount += 1;
-    // log('Empty bytecode for address ' + address);
-    return done(null, { vulnerabilities: {} });
-  }
-
-  fs.writeFile(byteCodePath, evmCode, (err) => {
-    if (err) return done(err);
-    
-    // Progressively append str result to this string on 'message' events
-    let jsonResult = '';
-
-    // Avoid 'close' and 'stderror' events both calling onDone callback
-    let isDone = false;
-
-    // Callback to delete temporary bytecode file and return Json result
-    const onDone = (err) => {
-      if (isDone) return;
-      else isDone = true;
-      jsonResult = jsonResult.length > 0 ? jsonResult : '{}';
-      fs.unlink(byteCodePath, e => done(err, JSON.parse(jsonResult)));
-    };
-
-    // Init the python shell to run oyente on this contract and handle events
-    let shell = new PythonShell('oyente.py', {
-      pythonPath: PYTHON_PATH,
-      scriptPath: OYENTE_PY_DIR,
-      args: ['-s', byteCodePath, '-b']
+function runOyenteWorker(address, bytecode) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(OYENTE_JS_WORKER_PATH, {
+      workerData: { address, bytecode }
     });
-
-    shell.on('message', message => jsonResult += message);
-    shell.on('stderr', err => {
-      if (err.slice(0, 4) == 'INFO') return;
-      else return onDone(err); 
-    });
-    // Assume all errors will be handled by stderr above
-    shell.on('error', err => {});
-    shell.on('close', onDone);
+    worker.on('message', resolve);
+    worker.on('error', reject);
+    worker.on('exit', resolve);
   });
-};
+}
 
 // Scrape a contract CSV's contract addresses for their bytecodes
 function analyzeBytecodesForCurrentBatch(callback) {
@@ -166,8 +124,10 @@ function analyzeBytecodesForCurrentBatch(callback) {
 
       const waitDelay = new Date() - waitTime;
       const startOyente = new Date();
+     
+      const handleOyent = (err, jsonResult) => {
+        console.log('GOT JSON RESULT FROM OYENTE WORKER', err, jsonResult);
 
-      launchOyenteThread(address, bytecode, (err, jsonResult) => {
         jsonResult = jsonResult || {};
         jsonResult.vulnerabilities = jsonResult.vulnerabilities || {};
         jsonResult.evm_code_coverage = jsonResult.evm_code_coverage || '';
@@ -213,7 +173,14 @@ function analyzeBytecodesForCurrentBatch(callback) {
             }
           }
         );
-      });
+      };
+
+      // Launch oyente worker thread      
+      console.log('Launch the oyente worker thread...');
+      runOyenteWorker(address, bytecode)
+        .then(({ err, result }) => handleOyent(err, result))
+        .catch(e => handleOyent(e, {}));
+
     });
   });
 
