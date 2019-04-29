@@ -1,3 +1,6 @@
+// NOTE: must run `node` with the `--experimental-worker` flag
+const { Worker } = require('worker_threads');
+
 const async = require('async');
 const fs = require('fs');
 const LineByLineReader = require('line-by-line');
