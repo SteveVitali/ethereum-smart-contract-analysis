@@ -44,11 +44,12 @@ const makeCsvPathForBatch = (dir, table) => {
 // For each pending oyente bytecode analysis, store data in this global map
 let addressRequestMap = {};
 
-const canAddThread = () => Object.keys(addressRequestMap).length < MAX_THREADS;
+const numActiveThreads = () => Object.keys(addressRequestMap).length;
+const canAddThread = () => numActiveThreads() < MAX_THREADS;
+const queueIsNonEmpty = () => numActiveThreads()  > 0;
 const queueIsFull = () => !canAddThread();
-const queueIsNonEmpty = () => Object.keys(addressRequestMap).length > 0;
-const WAIT_DELAY = 10;
 
+const WAIT_DELAY = 10;
 const wait = (callback) => setTimeout(() => callback(null), WAIT_DELAY);
 
 const startTime = new Date();
@@ -70,26 +71,36 @@ const launchOyenteThread = (address, bytecode, done) => {
 
   fs.writeFile(byteCodePath, evmCode, (err) => {
     if (err) return done(err);
+    
+    // Progressively append str result to this string on 'message' events
+    let jsonResult = '';
 
+    // Avoid 'close' and 'stderror' events both calling onDone callback
+    let isDone = false;
+
+    // Callback to delete temporary bytecode file and return Json result
+    const onDone = (err) => {
+      if (isDone) return;
+      else isDone = true;
+      jsonResult = jsonResult.length > 0 ? jsonResult : '{}';
+      fs.unlink(byteCodePath, err => done(err, JSON.parse(jsonResult)));
+    };
+
+    // Init the python shell to run oyente on this contract and handle events
     let shell = new PythonShell('oyente.py', {
       pythonPath: PYTHON_PATH,
       scriptPath: OYENTE_PY_DIR,
       args: ['-s', byteCodePath, '-b']
     });
 
-    let jsonResult = '';
     shell.on('message', message => jsonResult += message);
     shell.on('stderr', err => {
       if (err.slice(0, 4) == 'INFO') return;
-      else return done(err); 
+      else return onDone(err); 
     });
     // Assume all errors will be handled by stderr above
     shell.on('error', err => {});
-    shell.on('close', () => {
-      // Delete temporary bytecode file and return Json result
-      jsonResult = jsonResult.length > 0 ? jsonResult : '{}';
-      fs.unlink(byteCodePath, err => done(err, JSON.parse(jsonResult)));
-    });
+    shell.on('close', onDone);
   });
 };
 
@@ -116,13 +127,13 @@ function analyzeBytecodesForCurrentBatch(callback) {
   const csvWriter = fs.createWriteStream(outPath, { flags:'a' });
 
   let batchWaitTime = 0;
+  let batchOyenteTime = 0;
   let batchLineCount = 0;
   const batchStartTime = new Date();
-  const secondsSince = () => (new Date() - batchStartTime) / 1000;
 
   lineReader.on('line', (line) => {
     // Skip the first line, but write the header to the output Csv
-    if (++batchLineCount === 1) {
+    if (batchLineCount === 0) {
       return csvWriter.write(OUTPUT_HEADER + '\n'); 
     };
 
@@ -131,55 +142,59 @@ function analyzeBytecodesForCurrentBatch(callback) {
 
     // Wait until less than MAX_THREADS concurrent oyente threads are running,
     const didWait = !canAddThread();
-    if (didWait) {
-      lineReader.pause();
-      log('Pausing line reader at line ' + batchLineCount);
-    }
+    if (didWait) lineReader.pause();
 
     let waitTime = new Date();
 
     async.whilst(queueIsFull, wait, (err) => {
-      let delay = new Date() - waitTime;
-      batchWaitTime += delay;
-      didWait && console.log('Waited', delay, 'ms for open space in queue');
-
       // Add current contract lineItems to the addressRequestMap map to
       // indicate that it is currently having its bytecode analyzed;
       // resume the line-reader; and execute the oyente bytecode analysis
       addressRequestMap[lineItems[0]] = lineItems;
       didWait && lineReader.resume();
 
-      waitTime = new Date();
+      const waitDelay = new Date() - waitTime;
+      const startOyente = new Date();
+
       launchOyenteThread(address, bytecode, (err, jsonResult) => {
-        log(JSON.stringify(jsonResult));
         jsonResult = jsonResult || {};
         jsonResult.vulnerabilities = jsonResult.vulnerabilities || {};
         jsonResult.evm_code_coverage = jsonResult.evm_code_coverage || '';
         ['callstack', 'reentrancy', 'time_dependency', 'integer_overflow',
-          'integer_underflow', 'money_concurrency'].forEach(v => {
-          jsonResult.vulnerabilities[v] = jsonResult.vulnerabilities[v] || '';
+          'integer_underflow', 'money_concurrency'].forEach(vulnerability => {
+          jsonResult.vulnerabilities[vulnerability] = (
+            jsonResult.vulnerabilities[vulnerability] !== undefined
+              ? jsonResult.vulnerabilities[vulnerability]
+              : ''
+          );
         });
-        log(JSON.stringify(jsonResult));
 
-        if (err) console.log('OYENTE ERR:', err);
-        else log('Oyente fin ' + address + '(' + (new Date() - waitTime) + ')');
-
-        // Delete contract address from map since its bytecode was analyzed
-        delete addressRequestMap[address];
+        err && console.log('OYENTE ERR:', err);
 
         // Write the new line of scraped bytecode to the output CSV
         let { vulnerabilities, evm_code_coverage } = jsonResult;
-
         let { callstack, reentrancy, time_dependency, integer_overflow,
               integer_underflow, money_concurrency } = vulnerabilities;
 
         // Write oyente results to output CSV
-        csvWriter.write([
-          address, bytecode, sigHashes, isErc20, isErc721,
-          callstack, reentrancy, time_dependency, integer_overflow,
-          integer_underflow, money_concurrency
-        ].join(',') + '\n');
+        csvWriter.write(
+          [ address, bytecode, sigHashes, isErc20, isErc721,
+            callstack, reentrancy, time_dependency, integer_overflow,
+            integer_underflow, money_concurrency].join(',') + '\n',
+          (err) => {
+            err && console.log(err);
+            // Delete contract address from map since its bytecode was analyzed
+            delete addressRequestMap[address];
 
+            const oyenteDelay = (new Date()) - startOyente;
+            batchWaitTime += waitDelay;
+            batchOyenteTime += oyenteDelay;
+            batchLineCount += 1;
+
+            console.log(`[${batchLineCount}] Ran oyente ${oyenteDelay}ms, ` +
+               `waited ${waitDelay}ms, ${numActiveThreads()} threads`);
+          }
+        );
       });
     });
   });
@@ -188,11 +203,12 @@ function analyzeBytecodesForCurrentBatch(callback) {
     // Wait for queue to empty, since end of input CSV may be read before
     // all the updated bytecode analyses are written to output,
     // which means we must wait to close the output stream    
+    console.log('Reached end of file; waiting on', numActiveThreads());
     const startWait = new Date();
     async.whilst(queueIsNonEmpty, wait, (err) => {
       err && console.log(err);
       console.log('Waited', new Date() - startWait, 'ms for queue to empty');
-
+      console.log('Now safely closing the output stream');
       csvWriter.end();
 
       totalLineCount += batchLineCount;
@@ -200,8 +216,10 @@ function analyzeBytecodesForCurrentBatch(callback) {
 
       const end = currentBatchStartBlock + BATCH_SIZE - 1;
       console.log('SCRAPE STATS FOR BATCH' + currentBatchStartBlock + '-' + end);
-      console.log('Analyzed', batchLineCount, 'with', batchWaitTime + 'ms delay');
-      console.log(totalLineCount, secondsSince(), totalWaitTime); 
+      console.log(`  Analyzed ${batchLineCount} lines, ${batchOyenteTime}ms ` +
+        `oyente time, ${batchWaitTime}ms queue wait time`);
+      console.log(`  ${totalLineCount} line ${new Date() - batchStartTime}s`);
+      console.log(totalWaitTime, 'total time spent'); 
 
       // INCREMENT currentBatchStartBlock and CALL CALLBACK
       currentBatchStartBlock += BATCH_SIZE;
