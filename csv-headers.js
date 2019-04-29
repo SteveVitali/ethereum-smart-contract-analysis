@@ -9,6 +9,16 @@ export default {
   contracts:
     `address,bytecode,function_sighashes,is_erc20,is_erc721`,
 
+  // same as `contracts` but with bytecode filled out
+  contracts_bytecode:
+    `address,bytecode,function_sighashes,is_erc20,is_erc721`,
+
+  // same as contracts/contracts_bytecode but with evm analysis results
+  contracts_analysis:
+    `address,bytecode,function_sighashes,is_erc20,is_erc721,` +
+    `callstack,reentrancy,time_dependency,integer_overflow,` +
+    `integer_underflow,money_concurrency,evm_code_coverage`
+
   logs:
     `log_index,transaction_hash,transaction_index,block_hash,
     block_number,address,data,topics`,
