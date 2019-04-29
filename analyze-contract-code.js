@@ -1,5 +1,6 @@
 // NOTE: must run `node` with the `--experimental-worker` flag
 const { Worker } = require('worker_threads');
+const Pool = require('worker-threads-pool');
 
 const async = require('async');
 const fs = require('fs');
@@ -126,8 +127,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
       const startOyente = new Date();
      
       const handleOyent = (err, jsonResult) => {
-        console.log('GOT JSON RESULT FROM OYENTE WORKER', err, jsonResult);
-
+        // console.log('Oyente JSON result', err, jsonResult);
         jsonResult = jsonResult || {};
         jsonResult.vulnerabilities = jsonResult.vulnerabilities || {};
         jsonResult.evm_code_coverage = jsonResult.evm_code_coverage || '';
@@ -176,7 +176,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
       };
 
       // Launch oyente worker thread      
-      console.log('Launch the oyente worker thread...');
+      // console.log('Launch the oyente worker thread...');
       runOyenteWorker(address, bytecode)
         .then(({ err, result }) => handleOyent(err, result))
         .catch(e => handleOyent(e, {}));
