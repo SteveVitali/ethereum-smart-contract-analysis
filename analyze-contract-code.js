@@ -52,9 +52,8 @@ const queueIsFull = () => !canAddThread();
 const WAIT_DELAY = 10;
 const wait = (callback) => setTimeout(() => callback(null), WAIT_DELAY);
 
-const startTime = new Date();
-
 // Init stats variables
+let totalTotalTime = 0;
 let totalWaitTime = 0;
 let totalOyenteTime = 0;
 let totalLineCount = 0;
@@ -136,6 +135,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
   let batchOyenteTime = 0;
   let batchLineCount = 0;
   let batchErrorCount = 0;
+  let batchTotalTime = 0;
   const batchStartTime = new Date();
 
   lineReader.on('line', (line) => {
@@ -201,6 +201,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
             const oyenteDelay = (new Date()) - startOyente;
             batchWaitTime += waitDelay;
             batchOyenteTime += oyenteDelay;
+            batchTotalTime += (new Date()) - batchStartTime;
             batchLineCount += 1;
 
             if (batchLineCount % LOG_EVERY === 0) {
@@ -226,18 +227,21 @@ function analyzeBytecodesForCurrentBatch(callback) {
       csvWriter.end();
 
       totalLineCount += batchLineCount;
+      totalTotalTime += batchTotalTime;
       totalWaitTime += batchWaitTime;
       totalOyenteTime += batchOyenteTime;
       totalErrorCount += batchErrorCount;
 
       const end = currentBatchStartBlock + BATCH_SIZE - 1;
 
-      console.log('SCRAPE STATS FOR BATCH' + currentBatchStartBlock + '-' + end);
+      console.log(`__STATS FOR BATCH ${currentBatchStartBlock}-${end}__`);
       console.log(`  ${batchLineCount} lines, ${batchErrorCount} errors`);
-      console.log(`  ${batchOyenteTime}ms oyente, ${batchWaitTime}ms queueing`);
-      console.log(`  ${new Date() - batchStartTime}ms batch total`);
-
-      console.log('Total time', (totalWaitTime / 1000), 'seconds');
+      console.log(`  ${batchOyenteTime / 1000}s oyente time`);
+      console.log(`  ${batchWaitTime / 1000}s queue wait time`);
+      console.log(`  ${batchTotalTime / 1000}s batch total`);
+      console.log();
+      console.log('__AGGREGATE STATS__');
+      console.log('Total time', (totalTotalTime / 1000), 'seconds');
       console.log('Total lines', totalLineCount);
       console.log('Total queue wait', totalWaitTime);
       console.log('Total oyente time', totalOyenteTime);
