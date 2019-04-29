@@ -25,7 +25,7 @@ const MAX_BLOCK = argv.m || argv['max-block'] || 7532178;
 const END_BLOCK = argv.e || argv['end-block'] || MAX_BLOCK;
 
 const DEBUG = argv.d || argv['debug'];
-const LOG_EVERY = 1;
+const LOG_EVERY = argv.l || argv['log-every'] || 1;
 const log = (str) => DEBUG && console.log(str);
 
 // Max number of concurrent oyente Python threads
@@ -89,7 +89,7 @@ const launchOyenteThread = (address, bytecode, done) => {
       if (isDone) return;
       else isDone = true;
       jsonResult = jsonResult.length > 0 ? jsonResult : '{}';
-      fs.unlink(byteCodePath, err => done(err, JSON.parse(jsonResult)));
+      fs.unlink(byteCodePath, e => done(err, JSON.parse(jsonResult)));
     };
 
     // Init the python shell to run oyente on this contract and handle events
@@ -233,10 +233,9 @@ function analyzeBytecodesForCurrentBatch(callback) {
       const end = currentBatchStartBlock + BATCH_SIZE - 1;
 
       console.log('SCRAPE STATS FOR BATCH' + currentBatchStartBlock + '-' + end);
-      console.log(`  Analyzed ${batchLineCount} lines, ${batchErrorCount} ` + 
-        `oyente error, ${batchOyenteTime}ms oyente time, ` +
-        `${batchWaitTime}ms queue wait time`);
-      console.log(`  ${totalLineCount} line ${new Date() - batchStartTime}ms`);
+      console.log(`  ${batchLineCount} lines, ${batchErrorCount} errors`);
+      console.log(`  ${batchOyenteTime}ms oyente, ${batchWaitTime}ms queueing`);
+      console.log(`  ${new Date() - batchStartTime}ms batch total`);
 
       console.log('Total time', (totalWaitTime / 1000), 'seconds');
       console.log('Total lines', totalLineCount);
