@@ -270,7 +270,7 @@ sudo rm /usr/bin/evm
 sudo cp geth-alltools-linux-amd64-1.6.6-10a45cb5/evm /usr/bin/evm
 ```
 
-### Install `Z3` v4.5.0
+### Install `Z3` v4.5.1
 Download the source from the [downloads page](https://github.com/Z3Prover/z3/releases/tag/z3-4.5.0) using `wget`:
 ```
 wget https://github.com/Z3Prover/z3/archive/z3-4.5.0.zip
@@ -301,8 +301,8 @@ pip install requests
 pip install web3
 ```
 
-Finally, test the `oyente` command on a test file (e.g. create a test file ex.evm containing the text of the bytecode scraped for a contract from the previous step):
+Finally, test the `oyente` command on a test file (e.g. create a test file `ex.evm` containing the text of the bytecode scraped for a contract from the previous step):
 ```
-python oyente.py -s ex.evm -b
+python oyente/oyente/oyente.py -s ex.evm -b
 ```
 
