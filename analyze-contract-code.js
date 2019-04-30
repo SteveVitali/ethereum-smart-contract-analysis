@@ -6,6 +6,35 @@ const csvHeaders = require('./csv-headers.js');
 
 const argv = require('minimist')(process.argv.slice(2));
 
+const usageStr = `
+Usage: node analyze-contract-code.js [OPTIONS]
+
+  Analyze bytecode with Oyente and write a copy of the contracts_bytecode
+  data export with the additional Oyente results fields populated
+
+Options:
+-t, --threads INTEGER       The number of concurrent Oyente analyses to allow
+                            to run concurrently (default 96)
+-e, --export-path STRING    Location of the export directories
+                            (default 'ethereumetl/export')
+-o, --output-dir STRING     Location of the output directory
+                            (default 'ethereumetl/export/contracts_analysis')
+-b, --batch-size INTEGER    Batch size, i.e. the number of blocks' worth of 
+                            data located in each CSV (default 100,000)
+-m, --max-block INTEGER     The max block number (default 7532178)
+-s, --start-block INTEGER   The number block to start scraping on (default 0)
+-e, --end-block INTEGER     the number block to stop scraping on
+                            (defaults to the value of MAX_BLOCK)
+-l, --log-every INTEGER     Write to console on every n-th oyente completion
+-d, --debug                 Turn on extra console logging
+-h, --help                  Show usage and exit
+`;
+
+if (argv.h || argv['help']) {
+  console.log(usageStr);
+  process.exit();
+}
+
 // NOTE: must run `node` with the `--experimental-worker` flag
 const { Worker } = require('worker_threads');
 const Pool = require('./worker-threads-pool');

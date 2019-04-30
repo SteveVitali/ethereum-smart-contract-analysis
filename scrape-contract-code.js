@@ -6,6 +6,12 @@ const Web3 = require('web3');
 const argv = require('minimist')(process.argv.slice(2));
 
 const usageStr = `
+Usage: node scrape-contract-code.js [OPTIONS]
+
+  Scrape bytecode and write a copy of the contracts data export with the
+  bytecode field populated.
+
+Options:
 -t, --threads INTEGER       The number of concurrent web3.eth.getCode
                             requests to allow at a time (default 100)
 -e, --export-path STRING    Location of the export directories
