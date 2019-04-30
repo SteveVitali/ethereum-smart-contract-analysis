@@ -1,13 +1,26 @@
-// NOTE: must run `node` with the `--experimental-worker` flag
-const { Worker } = require('worker_threads');
-const Pool = require('worker-threads-pool');
-
+require('longjohn');
 const async = require('async');
 const fs = require('fs');
 const LineByLineReader = require('line-by-line');
 const csvHeaders = require('./csv-headers.js');
 
 const argv = require('minimist')(process.argv.slice(2));
+
+// NOTE: must run `node` with the `--experimental-worker` flag
+const { Worker } = require('worker_threads');
+const Pool = require('./worker-threads-pool');
+
+// Max number of concurrent oyente Python threads
+const MAX_THREADS = argv.t || argv['threads'] || 1;
+const pool = new Pool({ max: MAX_THREADS });
+
+const increaseMaxListenersIfNecessary = () => {
+  if (MAX_THREADS > process.getMaxListeners()) {
+    console.log('Setting max listeners to', MAX_THREADS + 1);
+    process.setMaxListeners(MAX_THREADS + 1);
+  }
+};
+increaseMaxListenersIfNecessary();
 
 const EXPORT_DIR = argv['export-path'] || 'ethereumetl/export';
 const TABLE = 'contracts_bytecode';
@@ -26,9 +39,6 @@ const END_BLOCK = argv.e || argv['end-block'] || MAX_BLOCK;
 const DEBUG = argv.d || argv['debug'];
 const LOG_EVERY = argv.l || argv['log-every'] || 1;
 const log = (str) => DEBUG && console.log(str);
-
-// Max number of concurrent oyente Python threads
-const MAX_THREADS = argv.t || argv['threads'] || 1;
 
 // Global to be incremented by BATCH_SIZE after each async.whilst iteration
 let currentBatchStartBlock = START_BLOCK;
@@ -62,12 +72,15 @@ let totalErrorCount = 0;
 
 function runOyenteWorker(address, bytecode) {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(OYENTE_JS_WORKER_PATH, {
-      workerData: { address, bytecode }
+    const opts = { workerData: { address, bytecode, MAX_THREADS } };
+    
+    pool.acquire(OYENTE_JS_WORKER_PATH, opts, (err, worker) => {
+      err && console.log(err);
+      worker.on('message', resolve);
+      worker.on('error', reject);
+      worker.on('exit', resolve);increaseMaxListenersIfNecessary();
+      console.log('worker.getmaxlist', worker.getMaxListeners());    
     });
-    worker.on('message', resolve);
-    worker.on('error', reject);
-    worker.on('exit', resolve);
   });
 }
 
@@ -239,3 +252,4 @@ async.whilst(notFinishedLastBatch, analyzeBytecodesForCurrentBatch, (err) => {
   console.log('-------------------------------');
   console.log('Finished scraping block range' + START_BLOCK + '-' + END_BLOCK);
 });
+

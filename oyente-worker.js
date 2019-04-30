@@ -4,7 +4,7 @@ const PythonShell = require('python-shell').PythonShell;
 const PYTHON_PATH = '/usr/bin/python';
 const OYENTE_PY_DIR = 'oyente/oyente';
 
-const { address, bytecode } = workerData;
+const { address, bytecode, MAX_THREADS } = workerData;
 
 // Launch an oyente analysis of contract at address `address` with EVM
 // bytecode `bytecode`; when complete, send Json result to callback `done`
@@ -51,6 +51,7 @@ const launchOyenteThread = (address, bytecode, done) => {
     // Assume all errors will be handled by stderr above
     shell.on('error', err => {});
     shell.on('close', onDone);
+
   });
 };
 
