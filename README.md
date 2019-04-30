@@ -163,6 +163,12 @@ select count(*) from transactions; # ~7,500,000
 - Spin up a new Amazon EC2 instance. Make sure that there is enough disk space; a good lower bound is the sum of the [size of a fast `geth` sync](https://etherscan.io/chart2/chaindatasizefast) (now about 135GB) plus the size of the S3 bucket with the exported CSV's (now about 450GB).
 	- E.g., spin up a `t2.large` instance of Ubuntu Server 16.04 LTS (HVM) with an EBS volume of 800 GiB
 
+- First clone the main project repository and cd into it, since all of what follows will be done from within that directory:
+```
+> git clone https://github.com/SteveVitali/ethereum-smart-contract-analysis.git
+> cd ethereum-smart-contract-analysis
+```
+
 - Run `bash setup-ec2-scraper.sh` to configure/install everything (note: it may take several hours for `geth` to re-sync)
 
 - Copy the entire 450+GB S3 bucket to the single EC2 instance using AWS command line interface (note: ec2 instance must have permissions for bucket, or it must be public) E.g., run:
