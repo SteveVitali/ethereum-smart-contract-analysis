@@ -10,3 +10,7 @@ nohup.out
 *.evm
 /worker-threads-pool
 /logs
+env/
+envsp/
+venv/
+
