@@ -1,7 +1,7 @@
 const { workerData, parentPort } = require('worker_threads');
 const fs = require('fs');
 const PythonShell = require('python-shell').PythonShell;
-const PYTHON_PATH = '/usr/bin/python';
+const PYTHON_PATH = '/usr/bin/python2';
 const OYENTE_PY_DIR = 'oyente/oyente';
 
 const { address, bytecode, MAX_THREADS } = workerData;

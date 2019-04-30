@@ -293,7 +293,7 @@ pip install virtualenv
 
 Start Python Virtualesbinv
 ```
-python -m virtualenv envsp
+python -m virtualenv env
 source env/bin/activate
 ```
 
@@ -480,5 +480,23 @@ Or, alternatively, to analyze the first 2,000,000 blocks' worth of contracts' by
 ```
 
 It looks like the total batch time continues to decrease until about 64 worker threads. Still, queue wait time does not tend towards zero until about 96 worker threads. This means that at 96 worker threads, there is never a time that one thread needs to wait to start executing its oyente analysis. Notice, though, that oyente time increases as thread number increases, since each individual oyente thread becomes slower the larger number of concurrent threads. All things considered, then, we will use 96 concurrent worker-threads.
+
+### Changing Ec2 Instance Type
+
+Clearly even with 96 concurrent Oyente threads, the t2.large does not have enough vCPUs and memory to process all the contract bytecode in a reasonable period of time. Given that there are about 2.4 million contracts, if we want to process all of them within 6-12 hours, we'll need to finish about 50-100 Oyente threads per second (right now we are finishing about 2.5/second).
+
+To upgrade the instance type, you can just select "Actions"->"Instance State"->"Stop" on the AWS EC2 dashboard and then select "Actions"->"Instance Settings"->"Change Instance Type"
+
+Note: this will change the public DNS name you use to ssh into the instance. And you will also need to restart the Python virtual environment to run Oyente and the node process that spawns Oyente threads.
+
+Re-initialize and configure Python virtual env for Oyente:
+```
+pip install --upgrade pip setuptools
+python -m virtualenv env
+source env/bin/activate
+python3 -m venv venv
+. venv/bin/activate
+pip install web3
+```
 
 
