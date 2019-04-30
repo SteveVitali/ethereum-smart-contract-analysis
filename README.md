@@ -306,3 +306,76 @@ Finally, test the `oyente` command on a test file (e.g. create a test file `ex.e
 python oyente/oyente/oyente.py -s ex.evm -b
 ```
 
+## Running Oyente Bytecode Analysis
+
+To run Oyente on the bytecodes located in `ethereumetl/export/contracts_bytecode` (for block range 0-99999 with 5 worker threads), run:
+```
+node --experimental-worker analyze-contract-code.js -s 0 -e 99999 -t 5
+```
+
+### Figuring out the Optimal Number of Worker-Threads in Worker-Thread-Pool
+1 worker thread, blocks 0-99999:
+```
+  343 bytecodes, 35 errors
+  402.364s batch total
+  400.165s oyente time
+  399.545s queue wait time
+```
+
+4 worker threads, blocks 0-99999:
+```
+  343 bytecodes, 54 errors
+  186.62s batch total
+  738.788s oyente time
+  182.58s queue wait time
+```
+
+8 worker threads, blocks 0-99999:
+```
+  343 bytecodes, 36 errors
+  162.612s batch total
+  1280.029s oyente time
+  156.304s queue wait time
+```
+
+16 worker threads, blocks 0-99999:
+```
+  343 bytecodes, 32 errors
+  161.345s batch total
+  2495.42s oyente time
+  150.519s queue wait time
+```
+
+32 worker threads, blocks 0-99999:
+```
+  343 bytecodes, 34 errors
+  155.541s batch total
+  4639.814s oyente time
+  129.623s queue wait time
+```
+
+64 worker threads, block 0-99999:
+```
+  343 bytecodes, 28 errors
+  137.482s batch total
+  6824.742s oyente time
+  34.374s queue wait time
+```
+
+96 worker threads, block 0-99999:
+  343 bytecodes, 27 errors
+  136.414s batch total
+  7966.224s oyente time
+  0.677s queue wait time
+
+128 worker threads, blocks 0-99999:
+```
+  343 bytecodes, 27 errors
+  138.366s batch total
+  7113.546s oyente time
+  0.772s queue wait time
+```
+
+It looks like the total batch time continues to decrease until about 64 worker threads. Still, queue wait time does not tend towards zero until about 96 worker threads. This means that at 96 worker threads, there is never a time that one thread needs to wait to start executing its oyente analysis. Notice, though, that oyente time increases as thread number increases, since each individual oyente thread becomes slower the larger number of concurrent threads. All things considered, then, we will use 96 concurrent worker-threads.
+
+
