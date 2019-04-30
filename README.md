@@ -464,10 +464,12 @@ Or, alternatively, to analyze the first 2,000,000 blocks' worth of contracts' by
 ```
 
 96 worker threads, block 0-99999:
+```
   343 bytecodes, 27 errors
   136.414s batch total
   7966.224s oyente time
   0.677s queue wait time
+```
 
 128 worker threads, blocks 0-99999:
 ```
