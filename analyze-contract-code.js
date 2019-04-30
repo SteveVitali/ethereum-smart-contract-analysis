@@ -156,7 +156,7 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
 
         jsonResult.oyente_err = !!err;
         if (err) {
-          console.log('OYENTE ERR:', err);
+          // console.log('OYENTE ERR:', err);
           batchErrorCount += 1;
         }
 
@@ -237,7 +237,7 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
   });
 
   lineReader.on('error', callback);
-}
+};
 
 
 const notFinishedLastBatch = () => (
