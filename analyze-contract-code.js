@@ -1,4 +1,4 @@
-require('longjohn');
+// require('longjohn');
 const async = require('async');
 const fs = require('fs');
 const LineByLineReader = require('line-by-line');
@@ -11,7 +11,9 @@ const { Worker } = require('worker_threads');
 const Pool = require('./worker-threads-pool');
 
 // Max number of concurrent oyente Python threads
-const MAX_THREADS = argv.t || argv['threads'] || 1;
+// 96 is roughly optimal on EC2 Ubuntu Server 16.04 t.large, so default = 96
+const DEFAULT_N_THREADS = 96;
+const MAX_THREADS = argv.t || argv['threads'] || DEFAULT_N_THREADS;
 const pool = new Pool({ max: MAX_THREADS });
 
 const increaseMaxListenersIfNecessary = () => {
@@ -37,7 +39,7 @@ const MAX_BLOCK = argv.m || argv['max-block'] || 7532178;
 const END_BLOCK = argv.e || argv['end-block'] || MAX_BLOCK;
 
 const DEBUG = argv.d || argv['debug'];
-const LOG_EVERY = argv.l || argv['log-every'] || 1;
+const LOG_EVERY = argv.l || argv['log-every'] || 50;
 const log = (str) => DEBUG && console.log(str);
 
 // Global to be incremented by BATCH_SIZE after each async.whilst iteration
@@ -78,14 +80,13 @@ function runOyenteWorker(address, bytecode) {
       err && console.log(err);
       worker.on('message', resolve);
       worker.on('error', reject);
-      worker.on('exit', resolve);increaseMaxListenersIfNecessary();
-      console.log('worker.getmaxlist', worker.getMaxListeners());    
+      worker.on('exit', resolve);
     });
   });
 }
 
 // Scrape a contract CSV's contract addresses for their bytecodes
-function analyzeBytecodesForCurrentBatch(callback) {
+const analyzeBytecodesForCurrentBatch = (callback) => {
   const [inputDir, inputFile] = makeCsvPathForBatch(CSV_DIR, TABLE);
   const [outputDir, outputFile] = makeCsvPathForBatch(OUTPUT_DIR, OUTPUT_TABLE);
   const inPath = `${inputDir}/${inputFile}`;
@@ -177,9 +178,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
             const oyenteDelay = (new Date()) - startOyente;
             batchWaitTime += waitDelay;
             batchOyenteTime += oyenteDelay;
-            batchTotalTime += (new Date()) - batchStartTime;
             batchLineCount += 1;
-
             if (batchLineCount % LOG_EVERY === 0) {
               console.log(`[${batchLineCount}] Ran oyente ${oyenteDelay}ms, ` +
                 `waited ${waitDelay}ms, ${numActiveThreads()} threads`);
@@ -209,6 +208,7 @@ function analyzeBytecodesForCurrentBatch(callback) {
       console.log('Now safely closing the output stream');
       csvWriter.end();
 
+      batchTotalTime = (new Date() - batchStartTime);
       totalLineCount += batchLineCount;
       totalTotalTime += batchTotalTime;
       totalWaitTime += batchWaitTime;
@@ -218,16 +218,16 @@ function analyzeBytecodesForCurrentBatch(callback) {
       const end = currentBatchStartBlock + BATCH_SIZE - 1;
 
       console.log(`__STATS FOR BATCH ${currentBatchStartBlock}-${end}__`);
-      console.log(`  ${batchLineCount} lines, ${batchErrorCount} errors`);
+      console.log(`  ${batchLineCount} bytecodes, ${batchErrorCount} errors`);
+      console.log(`  ${batchTotalTime / 1000}s batch total`);
       console.log(`  ${batchOyenteTime / 1000}s oyente time`);
       console.log(`  ${batchWaitTime / 1000}s queue wait time`);
-      console.log(`  ${batchTotalTime / 1000}s batch total`);
       console.log();
       console.log('__AGGREGATE STATS__');
+      console.log('Total bytecodes analyzed', totalLineCount);
       console.log('Total time', (totalTotalTime / 1000), 'seconds');
-      console.log('Total lines', totalLineCount);
-      console.log('Total queue wait', totalWaitTime);
-      console.log('Total oyente time', totalOyenteTime);
+      console.log('Total queue wait', totalWaitTime / 1000, 'seconds');
+      console.log('Total oyente time', totalOyenteTime / 1000, 'seconds');
       console.log('Total errors', totalErrorCount); 
 
       // INCREMENT currentBatchStartBlock and CALL CALLBACK
