@@ -6,7 +6,7 @@
 nohup.out
 /node_modules
 /analysis-data
-<<<<<<< Updated upstream
 /oyente
 *.evm
+/worker-threads-pool
 
