@@ -9,4 +9,4 @@ nohup.out
 /oyente
 *.evm
 /worker-threads-pool
-
+/logs

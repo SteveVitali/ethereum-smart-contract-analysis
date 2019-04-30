@@ -235,7 +235,7 @@ To check that the state synchronization has completed, try running `geth attach`
 ```
 If the responses are not '0x', then the state sync has probably completed.
 
-Another possible reason that all the scraped bytecodes from Ethereum-etl's `export_all.sh` returned '0x' is that in Medvedev's original tutorial, he forgot to include the `--rpc` flag on `geth` startup, which means that none of the RPC calls made during the export script succeeded. For this reason we have updated our EC2 setup script to run:
+Another possible reason that all the scraped bytecodes from Ethereum-etl's `export_all.sh` returned '0x' is that in Medvedev's original tutorial, he forgot to include the `--rpc` flag on `geth` startup, which means that some (or all?) of the RPC calls made during the export script succeeded. For this reason we have updated our EC2 setup script to run:
 ```
 nohup geth --cache=1024 --rpc --rpcport "8545" --rpcaddr "127.0.0.1" &
 ```
@@ -252,15 +252,28 @@ node scrape-contract-code.js -s <start_block> -e <end_block>
 
 This script reads every line of every CSV located in `ethereumetl/export/contracts`, fetches the otherwise-empty bytecode for each contract line using `web3.eth.getCode` RPC call, and then writes the results to parallel CSV's in a new directory `contracts_bytecode`, which has completely identical contents to `contracts/`, except that the bytecodes are now filled in.
 
-Optional arguments:
-- `--threads` (`-t`) gives the number of concurrent `web3.eth.getCode` requests to allow at a time (default 100)
-- `--export-path` gives the location of the export directories (default 'ethereumetl/export')
-- `--output-dir` gives the location of the output directory (default 'ethereumetl/export/contracts_bytecode')
-- `--output-table-name` gives the name of the output directory (default 'contracts_bytecode')
-- `--batch-size` gives the batch size, i.e. the number of blocks' worth of data located in each CSV (default 100000)
-- `--max-block` gives the max block number (default 7532178)
-- `--start-block` (`-s`) and `--end-block` (`-e`) give start and end block numbers (defaults 0 and MAX_BLOCK)
-- `--geth-url` gives the geth URL (default `http://localhost:8545`)
+```
+Usage: node scrape-contract-code.js [OPTIONS]
+
+  Scrape bytecode and write a copy of the contracts data export with the bytecode field populated.
+
+Options:
+  -t, --threads INTEGER       The number of concurrent `web3.eth.getCode`
+                              requests to allow at a time (default 100)
+  -e, --export-path STRING    Location of the export directories
+                              (default 'ethereumetl/export')
+  -o, --output-dir STRING     Location of the output directory
+                              (default 'ethereumetl/export/contracts_bytecode')
+  -b, --batch-size INTEGER    Batch size, i.e. the number of blocks' worth of 
+                              data located in each CSV (default 100,000)
+  -m, --max-block INTEGER     The max block number (default 7532178)
+  -s, --start-block INTEGER   The number block to start scraping on (default 0)
+  -e, --end-block INTEGER     the number block to stop scraping on
+                              (defaults to the value of MAX_BLOCK)
+  -g, --geth-url STRING       The geth URL (default `http://localhost:8545`)
+  -d, --debug                 Turn on extra console logging
+  -h, --help                  Show usage and exit
+```
 
 Once `scrape-contract-code.js` is done executing, you may want to sync the results to the S3 data store:
 ```
