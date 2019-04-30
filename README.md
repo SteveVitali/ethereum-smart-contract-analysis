@@ -481,6 +481,7 @@ Or, alternatively, to analyze the first 2,000,000 blocks' worth of contracts' by
 
 It looks like the total batch time continues to decrease until about 64 worker threads. Still, queue wait time does not tend towards zero until about 96 worker threads. This means that at 96 worker threads, there is never a time that one thread needs to wait to start executing its oyente analysis. Notice, though, that oyente time increases as thread number increases, since each individual oyente thread becomes slower the larger number of concurrent threads. All things considered, then, we will use 96 concurrent worker-threads.
 
+
 ### Changing Ec2 Instance Type
 
 Clearly even with 96 concurrent Oyente threads, the t2.large does not have enough vCPUs and memory to process all the contract bytecode in a reasonable period of time. Given that there are about 2.4 million contracts, if we want to process all of them within 6-12 hours, we'll need to finish about 50-100 Oyente threads per second (right now we are finishing about 2.5/second).
@@ -497,6 +498,12 @@ source env/bin/activate
 python3 -m venv venv
 . venv/bin/activate
 pip install web3
+nvm use 10.15.3
 ```
+
+Alternatively, you can use the `ec2-analyzer-on-boot.sh` convenience script.
+
+If you're a normal AWS user like me, Amazon won't let you create anything larger than a t2.2xlarge (8 vCPU's, 32GB memory). But we need more than that. One way around this is to select "Actions"->"Image"->"Create Image" for the t2.2xlarge version of the instance and then to create instances from that image (it may take tens of minutes or even longer to create the image).
+
 
 
