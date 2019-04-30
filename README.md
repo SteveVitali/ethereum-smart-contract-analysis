@@ -1,6 +1,6 @@
 # ethereum-smart-contract-analysis
 
-## Scraping the Blockchain and Exporting to S3 -- EC2 Setup Instructions
+# Scraping the Blockchain and Exporting to S3 -- EC2 Setup Instructions
 
 (Instructions adapted from Evgeny Medvedev's [helpful Medium post](https://medium.com/@medvedev1088/exporting-and-analyzing-ethereum-blockchain-f5353414a94e))
 
@@ -158,7 +158,9 @@ select count(*) from transactions; # ~7,500,000
 
 ------
 
-## Manual Analysis with node.js -- EC2 Setup Instructions
+# Manual Analysis with node.js
+
+## EC2 Setup Instructions
 
 - Spin up a new Amazon EC2 instance. Make sure that there is enough disk space; a good lower bound is the sum of the [size of a fast `geth` sync](https://etherscan.io/chart2/chaindatasizefast) (now about 135GB) plus the size of the S3 bucket with the exported CSV's (now about 450GB).
 	- E.g., spin up a `t2.large` instance of Ubuntu Server 16.04 LTS (HVM) with an EBS volume of 800 GiB
@@ -193,7 +195,7 @@ Once the export is complete, running `du --summary --human-readable *`) from `et
 161G	transactions
 ```
 
-Now we are ready to run the node analysis script(s), e.g. `contract-analysis.js`. If you haven't already, also install `npm` and the repo's package.json requirements:
+If you haven't already, also install `npm` and the repo's package.json requirements:
 ```
 sudo apt install npm
 npm install
@@ -213,13 +215,59 @@ curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | b
 . ~/.nvm/nvm.sh
 
 # Install
-nvm install 8.9.4
+nvm install 10.15.3
 
 # Sanity check
 node -e "console.log('Running Node.js ' + process.version)"
 ```
 
-At this point, the `npm install` should succeed, and we should be able to run the `contract-analysis.js` script and the like without error.
+At this point, the `npm install` should succeed, and we should be able to run our node scripts without error.
+
+## Scraping and Exporting the Contract Bytecodes
+
+You may notice that in the CSV's exported to `/contracts`, the second `bytecode` field is always '0x' for all contracts. If this is not the case for you, then congratulations. As it turns out, the state synchronization which contains the contract bytecode actually occurs after the basic level of synchronization that was required for the Ethereum-etl `export_all.sh` script to succeed. What this means is that the RPC request `eth_getCode` returned `0x` for all of the contracts we scraped and exported in the first step.
+
+Basically what this means is that you may need to wait up to several days for this state synchronization to complete and then run our bytecode scraper script to fetch the bytecodes for each of the contract addresses and write the results to a new directory of CSV's.
+
+To check that the state synchronization has completed, try running `geth attach` and from the node console testing `eth.getCode` on some contract addresses:
+```
+> eth.getCode('<contract_address>')
+```
+If the responses are not '0x', then the state sync has probably completed.
+
+Another possible reason that all the scraped bytecodes from Ethereum-etl's `export_all.sh` returned '0x' is that in Medvedev's original tutorial, he forgot to include the `--rpc` flag on `geth` startup, which means that none of the RPC calls made during the export script succeeded. For this reason we have updated our EC2 setup script to run:
+```
+nohup geth --cache=1024 --rpc --rpcport "8545" --rpcaddr "127.0.0.1" &
+```
+
+Now, once RPC is explicitly enabled, and once the state sync has completed, calls to `eth.getCode` should return actual bytecode hexes.
+
+
+### Running the `scrape-contract-code.js` Script
+
+To scrape a block range of contract bytecodes and write the results to a new directory `contract_bytecodes`, run:
+```
+node scrape-contract-code.js -s <start_block> -e <end_block>
+```
+
+This script reads every line of every CSV located in `ethereumetl/export/contracts`, fetches the otherwise-empty bytecode for each contract line using `web3.eth.getCode` RPC call, and then writes the results to parallel CSV's in a new directory `contracts_bytecode`, which has completely identical contents to `contracts/`, except that the bytecodes are now filled in.
+
+Optional arguments:
+- `--threads` (`-t`) gives the number of concurrent `web3.eth.getCode` requests to allow at a time (default 100)
+- `--export-path` gives the location of the export directories (default 'ethereumetl/export')
+- `--output-dir` gives the location of the output directory (default 'ethereumetl/export/contracts_bytecode')
+- `--output-table-name` gives the name of the output directory (default 'contracts_bytecode')
+- `--batch-size` gives the batch size, i.e. the number of blocks' worth of data located in each CSV (default 100000)
+- `--max-block` gives the max block number (default 7532178)
+- `--start-block` (`-s`) and `--end-block` (`-e`) give start and end block numbers (defaults 0 and MAX_BLOCK)
+- `--geth-url` gives the geth URL (default `http://localhost:8545`)
+
+Once `scrape-contract-code.js` is done executing, you may want to sync the results to the S3 data store:
+```
+> cd ethereumetl/export
+> aws s3 sync . s3://<bucket_name>/ethereumetl/export
+```
+If you want, you could even just delete the old `contracts` directory and rename `contracts_bytecode` to `contracts`. In any case, at this point the way is paved for running direct analyses (e.g., with Oyente) on the contract bytecodes themselves.
 
 
 ## Setting up Oyente
