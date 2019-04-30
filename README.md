@@ -375,9 +375,43 @@ python oyente/oyente/oyente.py -s ex.evm -b
 
 ## Running Oyente Bytecode Analysis
 
-To run Oyente on the bytecodes located in `ethereumetl/export/contracts_bytecode` (for block range 0-99999 with 5 worker threads), run:
+To run Oyente on the bytecodes located in `ethereumetl/export/contracts_bytecode`and to export the results to a copy of `/contracts_bytecode` with fields containing the Oyente results appended, we wrote the `analyze-contract-code.js` script.
+
+Note: because this script uses the now-experimental node v10.x worker_threads module, we must run this command with the `--experimental-worker` flag enabled.
+
 ```
-node --experimental-worker analyze-contract-code.js -s 0 -e 99999 -t 5
+Usage: node --experimental-worker analyze-contract-code.js [OPTIONS]
+
+  Analyze bytecode with Oyente and write a copy of the contracts_bytecode
+  data export with the additional Oyente results fields populated
+
+Options:
+-t, --threads INTEGER       The number of concurrent Oyente analyses to allow
+                            to run concurrently (default 96)
+-e, --export-path STRING    Location of the export directories
+                            (default 'ethereumetl/export')
+-o, --output-dir STRING     Location of the output directory
+                            (default 'ethereumetl/export/contracts_analysis')
+-b, --batch-size INTEGER    Batch size, i.e. the number of blocks' worth of 
+                            data located in each CSV (default 100,000)
+-m, --max-block INTEGER     The max block number (default 7532178)
+-s, --start-block INTEGER   The number block to start scraping on (default 0)
+-e, --end-block INTEGER     the number block to stop scraping on
+                            (defaults to the value of MAX_BLOCK)
+-l, --log-every INTEGER     Write to console on every n-th oyente completion
+-d, --debug                 Turn on extra console logging
+-h, --help                  Show usage and exit
+```
+
+To anaylze all bytecodes for all blocks with 96 concurrent threads and to store the result in `ethereumetl/export/contracts_analysis`, we can just run:
+```
+> node --experimental-worker analyze-contract-code.js 
+```
+
+Or, alternatively, to analyze the first 2,000,000 blocks' worth of contracts' bytecodes with Oyente with a maximum number of 32 concurrent Oyente threads, and to store the results in a new export directory in `ethereumetl/export` called `contracts_with_bytecode_and_oyente_data` (which contains identical data to `export/contracts` but with the bytecode and Oyente-analysis fields populated), we can run the command:
+```
+> OUT_PATH=ethereumetl/export/contracts_with_bytecode_and_oyente_data
+> node --experimental-worker analyze-contract-code.js --start-block 0 --end-block 1999999 --threads 32 --output-dir $OUT_PATH
 ```
 
 ### Figuring out the Optimal Number of Worker-Threads in Worker-Thread-Pool

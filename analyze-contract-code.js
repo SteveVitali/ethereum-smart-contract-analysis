@@ -6,8 +6,9 @@ const csvHeaders = require('./csv-headers.js');
 
 const argv = require('minimist')(process.argv.slice(2));
 
+// Note: the --experimental-worker flag is needed to enable worker_threads
 const usageStr = `
-Usage: node analyze-contract-code.js [OPTIONS]
+Usage: node --experimental-worker analyze-contract-code.js [OPTIONS]
 
   Analyze bytecode with Oyente and write a copy of the contracts_bytecode
   data export with the additional Oyente results fields populated
