@@ -513,6 +513,8 @@ git pull
 
 # Sync the current state of the S3 store
 bash ./push-pull-s3.sh
+
+rm nohup.out
 ```
 
 Alternatively, you can use the `ec2-analyzer-on-boot.sh` convenience script.
@@ -534,7 +536,7 @@ To pull any newly-uploaded bytecode analysis CSV's from S3, run:
 aws s3 sync s3://ethereum-blockchain-analysis-svitali .
 ```
 
-Alternatively, we can use the `push-pull-s3.sh` convenience script.
+Alternatively, we can use the `push-pull-s3.sh` convenience script to push to and then pull from S3 (and, conversely, we can use `pull-push.sh` on the other instances to pull from S3 and then push up any progress).
 
 
 ### Scraping with Several Instances Simultaneously
@@ -546,7 +548,7 @@ export END_BLOCK=7499999
 nohup node --experimental-worker analyze-contract-code.js --start-block $START_BLOCK --end-block $END_BLOCK --threads 96 --debug --log-every 200&
 ```
 
-If any of those block ranges has already been analyze (i.e., is already located in the contracts_analysis directory), the script will skip that batch. This is why it is important to always run the S3 sync command (‘./push-pull-s3.sh’) on all instances whenever a contract analysis job completes on any of the instances, since this will push the new result up to S3 on the instance that generated the analysis and pull the new result for all other instances (so that they can avoid double-analyzing that block range).
+If any of those block ranges has already been analyze (i.e., is already located in the contracts_analysis directory), the script will skip that batch. This is why it is important to always run the S3 sync commands on all instances whenever a contract analysis job completes on any of the instances, since this will push the new result up to S3 on the instance that generated the analysis and pull the new result for all other instances (so that they can avoid double-analyzing that block range).
 
 To check the progress of the Oyente bulk analysis, run the convenience script ‘analysis-progress.sh’:
 ```
@@ -567,5 +569,5 @@ cp nohup.out logs/log_oyente_${START_BLOCK}_${END_BLOCK}
 rm nohup.out
 ```
 
-And remember also to run `bash ./push-pull-s3.sh` on all other analyzer instances as well.
+And remember also to run `bash ./pull-push-s3.sh` on all other analyzer instances as well.
 
