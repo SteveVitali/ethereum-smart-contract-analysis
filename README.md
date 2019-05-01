@@ -490,15 +490,29 @@ To upgrade the instance type, you can just select "Actions"->"Instance State"->"
 
 Note: this will change the public DNS name you use to ssh into the instance. And you will also need to restart the Python virtual environment to run Oyente and the node process that spawns Oyente threads.
 
-Re-initialize and configure Python virtual env for Oyente:
+Steps to run on new EC2 Startup:
 ```
+# cd into the project directory
+cd ethereum-smart-contract-analysis/
+
+# Re-initialize and configure Python virtual env for Oyente:
 pip install --upgrade pip setuptools
 python -m virtualenv env
 source env/bin/activate
+
+# Install web3
 python3 -m venv venv
 . venv/bin/activate
 pip install web3
+
+# Make sure correct node version is enabled
 nvm use 10.15.3
+
+# Pull the latest branch
+git pull
+
+# Sync the current state of the S3 store
+bash ./push-pull-s3.sh
 ```
 
 Alternatively, you can use the `ec2-analyzer-on-boot.sh` convenience script.

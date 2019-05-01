@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# cd into the project directory
+cd ethereum-smart-contract-analysis/
+
 pip install --upgrade pip setuptools
 
 # Python virtuel env secret sauce to make Oyente work with web3
