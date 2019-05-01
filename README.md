@@ -542,7 +542,11 @@ Tail the nohup.out to read the logging continuously in stdout
 > tail nohup.out -f
 ```
 
-When the script completes, run `push-pull-s3.sh`:
+When the batch completes, run:
 ```
-> bash ./push-pull-s3.sh
+bash ./push-pull-s3.sh
+
+# Copy logs to `/logs` and reset nohup.out
+cp nohup.out logs/log_oyente_${START_BLOCK}_${END_BLOCK}
+rm nohup.out
 ```

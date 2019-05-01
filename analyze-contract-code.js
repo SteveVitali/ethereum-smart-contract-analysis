@@ -220,10 +220,11 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
           batchLineCount += 1;
 
           if (batchLineCount % LOG_EVERY === 0) {
-            console.log(`[${batchLineCount}] [${batchTimeHitherto}s] ` +
+            console.log(`${currentBatchStartBlock}:` +
+              `[${batchLineCount}] [${batchTimeHitherto}s] ` +
               `[${String(batchLineCount / batchTimeHitherto).slice(0,5)}/s] ` +
               `Oyente ${oyenteDelay}ms, ` +
-              `Waited ${waitDelay}ms, ${numActiveThreads()} threads`);
+              `Wait ${waitDelay}ms, ${numActiveThreads()} thread`);
           }
         });
       };
