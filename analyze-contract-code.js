@@ -223,8 +223,8 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
             console.log(`${currentBatchStartBlock}:` +
               `[${batchLineCount}] [${batchTimeHitherto}s] ` +
               `[${String(batchLineCount / batchTimeHitherto).slice(0,5)}/s] ` +
-              `Oyente ${oyenteDelay}ms, ` +
-              `Wait ${waitDelay}ms, ${numActiveThreads()} thread`);
+              `O ${oyenteDelay}ms, ` +
+              `W ${waitDelay}ms, ${numActiveThreads()} T`);
           }
         });
       };
