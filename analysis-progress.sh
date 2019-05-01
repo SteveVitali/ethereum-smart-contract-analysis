@@ -5,16 +5,15 @@
 
 cat nohup.out
 
-EXP=ethereumetl/export/contracts
-
 echo "Total Analysis Progress:"
-ls $EXP
+ls ethereumetl/export/contracts_analysis
 
 echo "Analyzing range: ${START_BLOCK} - ${END_BLOCK}"
 
+CONTRACTS=ethereumetl/export/contracts
 START=start_block=0${START_BLOCK}
 END=end_block=0${END_BLOCK}
 CSV=contracts_0${START_BLOCK}_0${END_BLOCK}.csv
 
 echo "Num Contracts in ${START_BLOCK}:"
-wc -l ${EXP}/${START}/${END}/${CSV}
+wc -l ${CONTRACTS}/${START}/${END}/${CSV}
