@@ -295,6 +295,5 @@ const notFinishedLastBatch = () => (
 async.whilst(notFinishedLastBatch, analyzeBytecodesForCurrentBatch, (err) => {
   err && console.log(err);
   console.log('-------------------------------');
-  console.log('Finished scraping block range' + START_BLOCK + '-' + END_BLOCK);
+  console.log(`Finished scraping block range ${START_BLOCK}-${END_BLOCK}`);
 });
-
