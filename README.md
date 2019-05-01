@@ -520,5 +520,6 @@ To pull any newly-uploaded bytecode analysis CSV's from S3, run:
 aws s3 sync s3://ethereum-blockchain-analysis-svitali .
 ```
 
+Alternatively, we can use the `push-pull-s3.sh` convenience script.
 
 
