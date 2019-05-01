@@ -1,8 +1,9 @@
-// require('longjohn');
 const async = require('async');
 const fs = require('fs');
 const LineByLineReader = require('line-by-line');
 const csvHeaders = require('./csv-headers.js');
+// Enable additional logging with longjohn
+// require('longjohn');
 
 const argv = require('minimist')(process.argv.slice(2));
 
@@ -77,8 +78,8 @@ let currentBatchStartBlock = START_BLOCK;
 
 const makeCsvPathForBatch = (dir, table) => {
   const s = ('00000000' + currentBatchStartBlock).slice(-8);
-  const endBlock = Math.min(currentBatchStartBlock + BATCH_SIZE - 1, MAX_BLOCK);
-  const e = ('00000000' + endBlock).slice(-8);
+  const endNum = Math.min(currentBatchStartBlock + BATCH_SIZE - 1, MAX_BLOCK);
+  const e = ('00000000' + endNum).slice(-8);
   return [`${dir}/start_block\=${s}/end_block\=${e}`, `${table}_${s}_${e}.csv`];
 };
 
@@ -102,6 +103,7 @@ let totalOyenteTime = 0;
 let totalLineCount = 0;
 let totalErrorCount = 0;
 
+
 function runOyenteWorker(address, bytecode) {
   return new Promise((resolve, reject) => {
     const opts = { workerData: { address, bytecode, MAX_THREADS } };
@@ -115,10 +117,11 @@ function runOyenteWorker(address, bytecode) {
   });
 }
 
+
 // Scrape a contract CSV's contract addresses for their bytecodes
 const analyzeBytecodesForCurrentBatch = (callback) => {
   const [inputDir, inputFile] = makeCsvPathForBatch(CSV_DIR, TABLE);
-  const [outputDir, outputFile] = makeCsvPathForBatch(OUTPUT_DIR, OUTPUT_TABLE);
+  const [outputDir,outputFile] = makeCsvPathForBatch(OUTPUT_DIR, OUTPUT_TABLE);
   const inPath = `${inputDir}/${inputFile}`;
   const outPath = `${outputDir}/${outputFile}`;
 
@@ -130,6 +133,7 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
   else {
     fs.mkdirSync(outputDir, { recursive: true });
   }
+
   console.log('___________________________________________');
   console.log('Analyzing bytecodes from CSV at', inPath);
   console.log('Writing new CSV with bytecode analysis to', outPath);
@@ -192,32 +196,36 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
 
         // Write the new line of scraped bytecode to the output CSV
         let { vulnerabilities, evm_code_coverage, oyente_err } = jsonResult;
+
         let { callstack, reentrancy, time_dependency, integer_overflow,
               integer_underflow, money_concurrency } = vulnerabilities;
 
-        // Write oyente results to output CSV
-        csvWriter.write(
-          [ address, bytecode, sigHashes, isErc20, isErc721, callstack,
-            reentrancy, time_dependency, integer_overflow, integer_underflow,
-            money_concurrency, evm_code_coverage, oyente_err].join(',') + '\n',
-          (err) => {
-            err && console.log(err);
-            // Delete contract address from map since its bytecode was analyzed
-            delete addressRequestMap[address];
+        const outputLineItems = [
+          address, bytecode, sigHashes, isErc20, isErc721, callstack,
+          reentrancy, time_dependency, integer_overflow, integer_underflow,
+          money_concurrency, evm_code_coverage, oyente_err
+        ];
 
-            const oyenteDelay = (new Date()) - startOyente;
-            const batchTimeHitherto = ((new Date()) - batchStartTime) / 1000;
-            batchWaitTime += waitDelay;
-            batchOyenteTime += oyenteDelay;
-            batchLineCount += 1;
-            if (batchLineCount % LOG_EVERY === 0) {
-              console.log(`[${batchLineCount}] [${batchTimeHitherto}s] ` +
-                `[${(batchLineCount / batchTimeHitherto)}/s] ` +
-                `Oyente ${oyenteDelay}ms, ` +
-                `Waited ${waitDelay}ms, ${numActiveThreads()} threads`);
-            }
+        // Write oyente results to output CSV
+        csvWriter.write(outputLineItems.join(',') + '\n', (err) => {
+          err && console.log(err);
+          // Delete contract address from map since its bytecode was analyzed
+          delete addressRequestMap[address];
+
+          const oyenteDelay = (new Date()) - startOyente;
+          const batchTimeHitherto = ((new Date()) - batchStartTime) / 1000;
+
+          batchWaitTime += waitDelay;
+          batchOyenteTime += oyenteDelay;
+          batchLineCount += 1;
+
+          if (batchLineCount % LOG_EVERY === 0) {
+            console.log(`[${batchLineCount}] [${batchTimeHitherto}s] ` +
+              `[${String(batchLineCount / batchTimeHitherto).slice(0,5)}/s] ` +
+              `Oyente ${oyenteDelay}ms, ` +
+              `Waited ${waitDelay}ms, ${numActiveThreads()} threads`);
           }
-        );
+        });
       };
 
       // Launch oyente worker thread      
@@ -235,10 +243,13 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
     // which means we must wait to close the output stream    
     console.log('Reached end of file; waiting on', numActiveThreads());
     const startWait = new Date();
+
     async.whilst(queueIsNonEmpty, wait, (err) => {
       err && console.log(err);
+
       console.log('Waited', new Date() - startWait, 'ms for queue to empty');
       console.log('Now safely closing the output stream');
+
       csvWriter.end();
 
       batchTotalTime = (new Date() - batchStartTime);
