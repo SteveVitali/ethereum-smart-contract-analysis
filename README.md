@@ -525,19 +525,21 @@ Alternatively, we can use the `push-pull-s3.sh` convenience script.
 
 ### Scraping with Several Instances Simultaneously
 
-To scrape, e.g., one batch-worth of blocks in the background, run:
+To scrape, e.g., the block range 7000000 to 7499999 in the background, run:
 ```
 export START_BLOCK=7000000
-export END_BLOCK=7099999
+export END_BLOCK=7499999
 nohup node --experimental-worker analyze-contract-code.js --start-block $START_BLOCK --end-block $END_BLOCK --threads 96 --debug --log-every 200&
 ```
 
-If that block range is already analyzed, the script will return immediately. Otherwise, periodically run `analysis-progress.sh` to check progress:
+If any of those block ranges has already been analyze (i.e., is already located in the contracts_analysis directory), the script will skip that batch. This is why it is important to always run the S3 sync command (‘./push-pull-s3.sh’) on all instances whenever a contract analysis job completes on any of the instances, since this will push the new result up to S3 on the instance that generated the analysis and pull the new result for all other instances (so that they can avoid double-analyzing that block range).
+
+To check the progress of the Oyente bulk analysis, run the convenience script ‘analysis-progress.sh’:
 ```
 > bash ./analysis-progress.sh
 ```
 
-Tail the nohup.out to read the logging continuously in stdout
+Or t the nohup.out to read the logging continuously in stdout
 ```
 > tail nohup.out -f
 ```
@@ -545,8 +547,4 @@ Tail the nohup.out to read the logging continuously in stdout
 When the batch completes, run:
 ```
 bash ./push-pull-s3.sh
-
-# Copy logs to `/logs` and reset nohup.out
-cp nohup.out logs/log_oyente_${START_BLOCK}_${END_BLOCK}
-rm nohup.out
 ```
