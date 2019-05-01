@@ -8,6 +8,7 @@ nohup.out
 /analysis-data
 /oyente
 *.evm
+*.disasm
 /worker-threads-pool
 /logs
 env/

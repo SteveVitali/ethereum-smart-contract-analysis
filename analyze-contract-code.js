@@ -206,11 +206,13 @@ const analyzeBytecodesForCurrentBatch = (callback) => {
             delete addressRequestMap[address];
 
             const oyenteDelay = (new Date()) - startOyente;
+            const batchTimeHitherto = ((new Date()) - batchStartTime) / 1000;
             batchWaitTime += waitDelay;
             batchOyenteTime += oyenteDelay;
             batchLineCount += 1;
             if (batchLineCount % LOG_EVERY === 0) {
-              console.log(`[${batchLineCount}] Ran oyente ${oyenteDelay}ms, ` +
+              console.log(`[${batchLineCount}] [${batchTimeHitherto}s] ` +
+                `Ran oyente ${oyenteDelay}ms, ` +
                 `waited ${waitDelay}ms, ${numActiveThreads()} threads`);
             }
           }
