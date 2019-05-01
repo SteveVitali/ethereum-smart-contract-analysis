@@ -523,3 +523,26 @@ aws s3 sync s3://ethereum-blockchain-analysis-svitali .
 Alternatively, we can use the `push-pull-s3.sh` convenience script.
 
 
+### Scraping with Several Instances Simultaneously
+
+To scrape, e.g., one batch-worth of blocks in the background, run:
+```
+export START_BLOCK=7000000
+export END_BLOCK=7099999
+nohup node --experimental-worker analyze-contract-code.js --start-block $START_BLOCK --end-block $END_BLOCK --threads 96 --debug --log-every 200&
+```
+
+If that block range is already analyzed, the script will return immediately. Otherwise, periodically run `analysis-progress.sh` to check progress:
+```
+> bash ./analysis-progress.sh
+```
+
+Tail the nohup.out to read the logging continuously in stdout
+```
+> tail nohup.out -f
+```
+
+When the script completes, run `push-pull-s3.sh`:
+```
+> bash ./push-pull-s3.sh
+```
