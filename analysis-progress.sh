@@ -23,4 +23,3 @@ for (( s=$START_BLOCK; s <= $END_BLOCK; s+=$batch_size )); do
 
 	echo "# Contracts in ${s}-${e}: ${contract_count}"
 done
-

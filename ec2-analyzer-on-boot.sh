@@ -21,3 +21,5 @@ git pull
 
 # Sync up with S3
 bash ./push-pull-s3.sh
+
+rm nohup.out
