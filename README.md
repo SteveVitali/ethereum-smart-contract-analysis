@@ -569,5 +569,5 @@ cp nohup.out logs/log_oyente_${START_BLOCK}_${END_BLOCK}
 rm nohup.out
 ```
 
-And remember also to run `bash ./pull-push-s3.sh` on all other analyzer instances as well.
+And remember also to run `bash ./pull-s3.sh` on all other analyzer instances as well.
 
