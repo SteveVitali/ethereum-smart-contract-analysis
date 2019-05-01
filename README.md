@@ -539,7 +539,7 @@ To check the progress of the Oyente bulk analysis, run the convenience script â€
 > bash ./analysis-progress.sh
 ```
 
-Or t the nohup.out to read the logging continuously in stdout
+Or tail the nohup.out to read the logging continuously in stdout
 ```
 > tail nohup.out -f
 ```
@@ -547,4 +547,11 @@ Or t the nohup.out to read the logging continuously in stdout
 When the batch completes, run:
 ```
 bash ./push-pull-s3.sh
+
+# Copy logs to `/logs` and reset nohup.out
+cp nohup.out logs/log_oyente_${START_BLOCK}_${END_BLOCK}
+rm nohup.out
 ```
+
+And remember also to run `bash ./push-pull-s3.sh` on all other analyzer instances as well.
+
